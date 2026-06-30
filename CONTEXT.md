@@ -2,6 +2,16 @@
 
 A pi extension that registers custom Jira tools. It uses the Atlassian CLI (`acli jira`) for authenticated API calls and the `extended-markdown-adf-parser` package to convert between Markdown and Atlassian Document Format (ADF).
 
+## Code Checks
+
+**Code Check**:
+A command that verifies the current codebase locally, such as a type check, linter, or test suite.
+_Avoid_: validation, quality gate
+
+**Code Check List**:
+The ordered set of code checks configured for a project.
+_Avoid_: validation commands, build pipeline
+
 ## Validation
 
 **Validation Pipeline**:

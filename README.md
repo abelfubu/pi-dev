@@ -20,9 +20,21 @@ pi install git:github.com/abelfubu/pi-dev
 
 ## Config
 
-`~/.pi/agent/pi-dev.json` and `.pi/pi-dev.json` are reserved for future configuration. They are not required today.
+`~/.pi/agent/pi-dev.json` and `.pi/pi-dev.json` are merged. The `codeChecks` key overrides auto-discovered commands:
+
+```json
+{
+  "codeChecks": {
+    "eslint": "npm run lint:strict",
+    "vitest": "npm run test:unit",
+    "tsc": "npm run typecheck"
+  }
+}
+```
 
 ## Tools
+
+### Jira
 
 | Tool | Purpose |
 |------|---------|
@@ -35,17 +47,20 @@ pi install git:github.com/abelfubu/pi-dev
 | `jira_comment` | Add a comment |
 | `jira_projects` | List projects |
 
-## Creating an issue
+### Code checks
 
-`jira_create` requires a `project` key. Example:
+| Tool | Purpose |
+|------|---------|
+| `code_check_discover` | Detect available checks in the project |
+| `code_check_eslint` | Run ESLint and summarize errors |
+| `code_check_tsc` | Run `tsc --noEmit` and summarize errors |
+| `code_check_vitest` | Run Vitest and summarize failures |
+| `code_check_parallel` | Run selected checks in parallel |
 
-```
-prompt: create a bug in ITA titled "Login fails on Safari"
-```
+## Skills
 
-## Skill
-
-The `jira` skill tells the LLM when and how to use the tools.
+- `jira` — how to use the Jira tools.
+- `check` — how to run code checks efficiently.
 
 ## Theme
 

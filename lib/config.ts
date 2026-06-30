@@ -3,7 +3,14 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+export interface CodeCheckConfig {
+  eslint?: string;
+  tsc?: string;
+  vitest?: string;
+}
+
 export interface PiDevConfig {
+  codeChecks?: CodeCheckConfig;
   // Reserved for future per-machine / per-project configuration.
   [key: string]: unknown;
 }
