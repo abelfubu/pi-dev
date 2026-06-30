@@ -4,13 +4,14 @@
   "description": "Pi extension with Jira tools and skills",
   "keywords": ["pi-package", "jira", "atlassian", "pi-extension"],
   "license": "MIT",
-  "files": ["extensions", "lib", "skills", "README.md", "CONTEXT.md", "docs"],
+  "files": ["extensions", "lib", "skills", "themes", "README.md", "CONTEXT.md", "docs"],
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "pi": {
     "extensions": ["extensions"],
-    "skills": ["skills"]
+    "skills": ["skills"],
+    "themes": ["themes"]
   },
   "dependencies": {
     "extended-markdown-adf-parser": "^2.4.0"

@@ -47,6 +47,10 @@ prompt: create a bug in ITA titled "Login fails on Safari"
 
 The `jira` skill tells the LLM when and how to use the tools.
 
+## Theme
+
+Includes the `material-darker` TUI theme. After installing the package, select it via `/settings` or set `"theme": "material-darker"` in `settings.json`.
+
 ## License
 
 MIT
