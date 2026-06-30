@@ -2,7 +2,23 @@
 
 A pi extension that registers custom Jira tools. It uses the Atlassian CLI (`acli jira`) for authenticated API calls and the `extended-markdown-adf-parser` package to convert between Markdown and Atlassian Document Format (ADF).
 
-## Language
+## Validation
+
+**Validation Pipeline**:
+The process of reviewing agent work, collecting findings, and re-prompting the agent until the work is accepted.
+_Avoid_: quality gate, review loop.
+
+**Validation Checklist**:
+A tracked list of findings from automated review and manual testing, used to decide when agent work is complete.
+_Avoid_: bug list, todo list.
+
+**Finding**:
+A specific problem identified during validation, either from automated review or from manual testing.
+_Avoid_: issue, bug, defect.
+
+**Pass**:
+The state when the validation checklist contains no open findings and the work is accepted.
+_Avoid_: done, approved.
 
 **Jira Tool**:
 A custom pi tool registered by the extension. Each tool maps to one Jira operation (search, view, create, update, transition, comment, list projects).
