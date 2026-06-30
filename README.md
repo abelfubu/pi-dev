@@ -18,24 +18,9 @@ pi install git:github.com/abelfubu/pi-dev
   ```
 - Node 20+.
 
-## Configure
+## Config
 
-Create `~/.pi/agent/pi-dev.json` for global defaults, or `.pi/pi-dev.json` in a project for per-project overrides.
-
-```json
-{
-  "jira": {
-    "defaultProject": "ITA",
-    "acliPath": "acli"
-  }
-}
-```
-
-Precedence:
-1. `JIRA_DEFAULT_PROJECT` env var
-2. `.pi/pi-dev.json`
-3. `~/.pi/agent/pi-dev.json`
-4. Hardcoded fallback `ITA`
+`~/.pi/agent/pi-dev.json` and `.pi/pi-dev.json` are reserved for future configuration. They are not required today.
 
 ## Tools
 
@@ -49,6 +34,14 @@ Precedence:
 | `jira_transitions` | List available transitions |
 | `jira_comment` | Add a comment |
 | `jira_projects` | List projects |
+
+## Creating an issue
+
+`jira_create` requires a `project` key. Example:
+
+```
+prompt: create a bug in ITA titled "Login fails on Safari"
+```
 
 ## Skill
 

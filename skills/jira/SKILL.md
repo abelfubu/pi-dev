@@ -21,7 +21,6 @@ Use these tools when the user wants to interact with Jira: finding tickets, read
 ## Conventions
 
 - Descriptions and comments are written in Markdown; the extension converts them to Atlassian Document Format (ADF).
-- The default project is `ITA` unless another is configured or passed.
+- `project` is required when creating an issue. Always confirm it before calling `jira_create`.
 - Use `@me` to assign an issue to the current user.
-- Always confirm the project key before creating if the user did not specify one.
 - If a transition fails, call `jira_transitions` to show the exact status names.

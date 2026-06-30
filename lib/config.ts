@@ -3,13 +3,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export interface JiraConfig {
-  defaultProject?: string;
-  acliPath?: string;
-}
-
 export interface PiDevConfig {
-  jira?: JiraConfig;
+  // Reserved for future per-machine / per-project configuration.
+  [key: string]: unknown;
 }
 
 export async function loadConfig(cwd: string): Promise<PiDevConfig> {
@@ -19,8 +15,7 @@ export async function loadConfig(cwd: string): Promise<PiDevConfig> {
 
   if (existsSync(globalPath)) {
     try {
-      const global = JSON.parse(await readFile(globalPath, "utf8"));
-      config = { ...global };
+      config = JSON.parse(await readFile(globalPath, "utf8"));
     } catch {
       // ignore malformed global config
     }
@@ -28,20 +23,11 @@ export async function loadConfig(cwd: string): Promise<PiDevConfig> {
 
   if (existsSync(projectPath)) {
     try {
-      const project = JSON.parse(await readFile(projectPath, "utf8"));
-      config = { ...config, ...project };
+      config = { ...config, ...JSON.parse(await readFile(projectPath, "utf8")) };
     } catch {
       // ignore malformed project config
     }
   }
 
   return config;
-}
-
-export function getDefaultProject(config: PiDevConfig): string {
-  return process.env.JIRA_DEFAULT_PROJECT || config.jira?.defaultProject || "ITA";
-}
-
-export function getAclPath(config: PiDevConfig): string {
-  return config.jira?.acliPath || "acli";
 }

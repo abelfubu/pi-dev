@@ -19,8 +19,8 @@ _Avoid_: Atlassian format, rich text.
 The conversion between user-facing Markdown and ADF using the `extended-markdown-adf-parser` package.
 _Avoid_: format parser, text converter.
 
-**Default Project**:
-The project key used when a tool does not receive an explicit `project`. Currently `ITA`.
+**Project Key**:
+The uppercase prefix of a Jira issue key that identifies the project, e.g. `ITA` in `ITA-133`.
 _Avoid_: default board, main project.
 
 **Work Item**:

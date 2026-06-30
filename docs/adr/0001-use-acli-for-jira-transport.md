@@ -1,6 +1,6 @@
 # Use acli jira as the Jira transport
 
-We chose to drive all Jira operations through the Atlassian CLI (`acli jira`) instead of calling the Jira REST API directly or reusing the existing `~/.local/bin/jira-api` wrapper. acli already handles OAuth authentication, so the extension does not need to manage `JIRA_API_TOKEN` or ask users for tokens. The trade-off is that acli must be installed and authenticated on every machine that runs the package. For Markdown ↔ ADF conversion we use the npm package `extended-markdown-adf-parser`, which is bidirectional and well-tested, instead of embedding the old `~/.local/bin` scripts.
+We chose to drive all Jira operations through the Atlassian CLI (`acli jira`) instead of calling the Jira REST API directly or reusing the existing `~/.local/bin/jira-api` wrapper. acli already handles OAuth authentication, so the extension does not need to manage `JIRA_API_TOKEN` or ask users for tokens. For Markdown ↔ ADF conversion we use the npm package `extended-markdown-adf-parser`, which is bidirectional and well-tested, instead of embedding the old `~/.local/bin` scripts.
 
 ## Considered Options
 
@@ -17,3 +17,5 @@ We picked **acli jira** because authentication is the hardest part to get right 
 - Every machine must install `acli` and run `acli auth login` before the tools work.
 - Tool output relies on acli's JSON shape; if acli changes its output, we must update our parsers.
 - The package depends on `extended-markdown-adf-parser` for text conversion.
+- `jira_create` requires an explicit `project` key; no default project is configured anywhere.
+- `pi-dev.json` is kept as an empty config scaffold for future concepts.

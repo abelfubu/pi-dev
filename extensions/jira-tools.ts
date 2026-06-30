@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { loadConfig, getDefaultProject } from "../lib/config.js";
 import { runAclJson } from "../lib/runner.js";
 import {
   markdownToAdf,
@@ -23,10 +22,9 @@ export default function (pi: ExtensionAPI) {
         default: "key,summary,status,issuetype",
       })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const output = await runAclJson(config, [
+        const output = await runAclJson([
           "jira", "workitem", "search",
           "--jql", params.jql,
           "--limit", String(params.limit ?? 20),
@@ -55,10 +53,9 @@ export default function (pi: ExtensionAPI) {
         default: "key,summary,status,issuetype,priority,assignee,reporter,description,created,updated",
       })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const output = await runAclJson(config, [
+        const output = await runAclJson([
           "jira", "workitem", "view", params.key,
           "--fields", params.fields ?? "key,summary,status,issuetype,priority,assignee,reporter,description,created,updated",
         ]);
@@ -78,21 +75,19 @@ export default function (pi: ExtensionAPI) {
     label: "Jira Create",
     description: "Create a Jira work item",
     parameters: Type.Object({
+      project: Type.String({ description: "Project key, e.g. ITA" }),
       type: Type.String({ description: "Issue type, e.g. Task, Story, Bug" }),
       summary: Type.String({ description: "Issue summary" }),
       description: Type.Optional(Type.String({ description: "Markdown description" })),
-      project: Type.Optional(Type.String({ description: "Project key, defaults to configured default" })),
       labels: Type.Optional(Type.Array(Type.String(), { description: "Labels" })),
       assignee: Type.Optional(Type.String({ description: "Assignee email or @me" })),
       parent: Type.Optional(Type.String({ description: "Parent issue key for subtasks" })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const project = params.project || getDefaultProject(config);
         const args = [
           "jira", "workitem", "create",
-          "--project", project,
+          "--project", params.project,
           "--type", params.type,
           "--summary", params.summary,
         ];
@@ -108,7 +103,7 @@ export default function (pi: ExtensionAPI) {
         if (params.parent) {
           args.push("--parent", params.parent);
         }
-        const output = await runAclJson(config, args);
+        const output = await runAclJson(args);
         const key = (output as any).key ?? "?";
         return {
           content: [{ type: "text", text: `Created **${key}**: ${params.summary}` }],
@@ -132,15 +127,14 @@ export default function (pi: ExtensionAPI) {
       assignee: Type.Optional(Type.String({ description: "Assignee email or @me" })),
       removeLabels: Type.Optional(Type.Array(Type.String(), { description: "Labels to remove" })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
         const args = ["jira", "workitem", "edit", "--key", params.key, "--yes"];
         if (params.summary) args.push("--summary", params.summary);
         if (params.labels?.length) args.push("--labels", params.labels.join(","));
         if (params.assignee) args.push("--assignee", params.assignee);
         if (params.removeLabels?.length) args.push("--remove-labels", params.removeLabels.join(","));
-        const output = await runAclJson(config, args);
+        const output = await runAclJson(args);
         return {
           content: [{ type: "text", text: `Updated **${params.key}**` }],
           details: output,
@@ -160,10 +154,9 @@ export default function (pi: ExtensionAPI) {
       key: Type.String({ description: "Issue key" }),
       status: Type.String({ description: "Target status name" }),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const output = await runAclJson(config, [
+        const output = await runAclJson([
           "jira", "workitem", "transition",
           "--key", params.key,
           "--status", params.status,
@@ -187,10 +180,9 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       key: Type.String({ description: "Issue key" }),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const output = await runAclJson(config, ["jira", "workitem", "transitions", params.key]);
+        const output = await runAclJson(["jira", "workitem", "transitions", params.key]);
         const transitions = (output as any).transitions ?? [];
         return {
           content: [{ type: "text", text: formatTransitions(transitions) }],
@@ -211,11 +203,10 @@ export default function (pi: ExtensionAPI) {
       key: Type.String({ description: "Issue key" }),
       body: Type.String({ description: "Markdown comment body" }),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
         const adf = JSON.stringify(markdownToAdf(params.body));
-        const output = await runAclJson(config, [
+        const output = await runAclJson([
           "jira", "workitem", "comment", "create",
           "--key", params.key,
           "--body", adf,
@@ -236,10 +227,9 @@ export default function (pi: ExtensionAPI) {
     label: "Jira Projects",
     description: "List available Jira projects",
     parameters: Type.Object({}),
-    async execute(_id, _params, _signal, _onUpdate, ctx) {
+    async execute(_id, _params, _signal, _onUpdate, _ctx) {
       try {
-        const config = await loadConfig(ctx.cwd);
-        const output = await runAclJson(config, ["jira", "project", "list"]);
+        const output = await runAclJson(["jira", "project", "list"]);
         const projects = Array.isArray(output) ? output : (output as any).projects ?? [];
         return {
           content: [{ type: "text", text: formatProjects(projects) }],

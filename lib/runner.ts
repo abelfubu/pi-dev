@@ -1,14 +1,12 @@
 import { execFile } from "node:child_process";
-import { getAclPath, type PiDevConfig } from "./config.js";
 
-export async function runAcl(config: PiDevConfig, args: string[]): Promise<string> {
-  const command = getAclPath(config);
+export async function runAcl(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { encoding: "utf8" }, (err, stdout, stderr) => {
+    execFile("acli", args, { encoding: "utf8" }, (err, stdout, stderr) => {
       if (err) {
         const detail = stderr.trim() || stdout.trim() || err.message;
         if (err.message.includes("ENOENT") || (err as NodeJS.ErrnoException).code === "ENOENT") {
-          return reject(new Error(`acli not found at "${command}". Install it and run \`acli auth login\`.`));
+          return reject(new Error(`acli not found. Install it and run \`acli auth login\`.`));
         }
         return reject(new Error(`acli failed: ${detail}`));
       }
@@ -17,8 +15,8 @@ export async function runAcl(config: PiDevConfig, args: string[]): Promise<strin
   });
 }
 
-export async function runAclJson(config: PiDevConfig, args: string[]): Promise<unknown> {
-  const raw = await runAcl(config, [...args, "--json"]);
+export async function runAclJson(args: string[]): Promise<unknown> {
+  const raw = await runAcl([...args, "--json"]);
   if (!raw) return {};
   try {
     return JSON.parse(raw);
