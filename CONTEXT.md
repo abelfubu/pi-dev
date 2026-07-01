@@ -1,6 +1,6 @@
-# Jira Tools Extension
+# Pi-Dev Extension
 
-A pi extension that registers custom Jira tools. It uses the Atlassian CLI (`acli jira`) for authenticated API calls and the `extended-markdown-adf-parser` package to convert between Markdown and Atlassian Document Format (ADF).
+A pi extension that registers custom tools for Jira, GitHub pull requests, and local code checks.
 
 ## Code Checks
 
@@ -52,3 +52,37 @@ _Avoid_: default board, main project.
 **Work Item**:
 A Jira issue/ticket. The extension uses the term acli uses (`workitem`), but the tools expose the more familiar term `issue` to the LLM.
 _Avoid_: ticket, task (unless the issue type is Task).
+
+## GitHub PR Tools
+
+**GitHub CLI**:
+The `gh` command-line tool. Used as the authenticated transport for GitHub operations.
+_Avoid_: gh cli, GitHub command line.
+
+**Pull Request**:
+A request to merge a head branch into a base branch on GitHub. The tools expose the abbreviation `PR` to the LLM, but the canonical term is `Pull Request`.
+_Avoid_: merge request.
+
+**Head Branch**:
+The branch containing the changes to be merged.
+_Avoid_: feature branch, source branch.
+
+**Base Branch**:
+The branch into which the changes will be merged.
+_Avoid_: target branch, destination branch.
+
+**Repository**:
+A GitHub repository, identified by `OWNER/NAME`.
+_Avoid_: repo, project (reserved for Jira).
+
+**Draft**:
+A pull request that is not yet ready for review.
+_Avoid_: WIP.
+
+**Status Check**:
+A CI status or check result reported on a pull request.
+_Avoid_: check (reserved for Code Check).
+
+**Ship**:
+To publish a completed slice of work by opening a GitHub pull request and updating the related Jira issue.
+_Avoid_: release, deploy.

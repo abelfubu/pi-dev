@@ -1,7 +1,7 @@
 {
   "name": "@abelfubu/pi-dev",
   "version": "0.1.0",
-  "description": "Pi extension with Jira tools and skills",
+  "description": "Pi extension with Jira, GitHub PR, and code-check tools and skills",
   "keywords": ["pi-package", "jira", "atlassian", "pi-extension"],
   "license": "MIT",
   "files": ["agents", "chains", "extensions", "lib", "skills", "themes", "README.md", "CONTEXT.md", "docs"],
