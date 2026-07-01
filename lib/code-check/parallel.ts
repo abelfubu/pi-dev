@@ -20,12 +20,13 @@ export async function runParallelChecks(options: ParallelOptions): Promise<Check
   const { cwd, path } = options;
   let tools = options.tools;
 
+  let discovery = await discoverCodeChecks(cwd);
+
   if (!tools || tools.length === 0) {
-    const discovery = await discoverCodeChecks(cwd);
     tools = discovery.available;
   }
 
-  const { overrides } = await discoverCodeChecks(cwd);
+  const { overrides } = discovery;
   const results = await Promise.all(
     tools.map((tool) => runners[tool](cwd, path, overrides[tool]))
   );
