@@ -1,31 +1,31 @@
 ---
 name: implement-slice
 description: |
-  Implement one vertical slice of a feature: code, review, fix, open PR,
-  and update Jira. Intended to be invoked once per slice by the parent
-  orchestrator.
+  Implement and review one vertical slice: scout, code, review, and apply
+  accepted fixes. Stops before shipping; the parent orchestrator should ask
+  for human approval, then run ship-slice.
 ---
 
-# Implement one vertical slice
+# Implement and review one vertical slice
 
 ## 1. Scout the slice
 
-- agent: scout
+- agent: slice-ship.scout
 - task: |
     Read the Jira issue for this slice and inspect the relevant code,
-    tests, and docs. Summarize the scope, existing patterns, and any
-    risks or dependencies.
+    tests, and docs. Summarize the scope, existing patterns, risks, and
+    dependencies.
   output: "{chain_dir}/slice-context.md"
 
 ## 2. Implement the slice
 
-- agent: worker
+- agent: slice-ship.worker
 - task: |
     Implement the vertical slice described in the Jira issue and the
     context from {previous}.
 
-    Follow the project conventions, add or update tests, and run the
-    relevant validation commands.
+    Follow project conventions, add or update tests, run validation
+    (eslint, tsc, vitest), and fix issues.
 
     Return a handoff with:
     - changed files
@@ -43,29 +43,38 @@ description: |
 
 ## 3. Review the slice
 
-- agent: reviewer
+- agent: slice-ship.reviewer
 - task: |
-    Review the current diff for correctness, regressions, and
-    maintainability. Inspect changed files directly; do not rely on the
-    worker's reasoning. Provide evidence-backed findings with file and
-    line references.
-  context: fresh
+    Review the current diff for correctness, regressions, tests/validation
+    quality, simplicity, and maintainability. Inspect changed files directly;
+    do not rely on the worker's reasoning. Provide evidence-backed findings
+    with file and line references.
   output: "{chain_dir}/review.md"
 
 ## 4. Apply accepted fixes
 
-- agent: worker
+- agent: slice-ship.worker
 - task: |
     Apply only the review findings worth doing now from {previous}.
     Preserve the approved scope. Ask before making product, architecture,
     or scope changes. Run focused validation and summarize what changed.
   output: "{chain_dir}/fixes.md"
 
-## 5. Open PR and update Jira
+## 5. Hand off for approval
 
-- agent: delegate
+- agent: slice-ship.delegate
 - task: |
-    The slice is now implemented and reviewed. Open a GitHub PR with a
-    clear title and description referencing the Jira issue, then update
-    the Jira issue status and add a comment linking to the PR.
-  output: "{chain_dir}/slice-result.md"
+    The slice is implemented and reviewed. Do NOT open a PR or update Jira
+    yet. Instead, produce a concise handoff summary for the parent
+    orchestrator and human reviewer that includes:
+
+    - Jira issue key and summary
+    - what was implemented
+    - changed files
+    - validation results
+    - remaining review findings (if any)
+    - a clear statement that the slice is ready for human approval before
+      shipping
+
+    The parent will run ship-slice after approval.
+  output: "{chain_dir}/ready-for-approval.md"
