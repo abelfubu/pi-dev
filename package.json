@@ -4,21 +4,31 @@
   "description": "Pi extension with Jira tools and skills",
   "keywords": ["pi-package", "jira", "atlassian", "pi-extension"],
   "license": "MIT",
-  "files": ["extensions", "lib", "skills", "themes", "README.md", "CONTEXT.md", "docs"],
+  "files": ["agents", "chains", "extensions", "lib", "skills", "themes", "README.md", "CONTEXT.md", "docs"],
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "pi": {
     "extensions": ["extensions"],
     "skills": ["skills"],
-    "themes": ["themes"]
+    "themes": ["themes"],
+    "subagents": {
+      "agents": ["agents"],
+      "chains": ["chains"]
+    }
   },
   "dependencies": {
     "extended-markdown-adf-parser": "^2.4.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*"
+    "typebox": "*",
+    "pi-subagents": "*"
+  },
+  "peerDependenciesMeta": {
+    "pi-subagents": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.80.2",
