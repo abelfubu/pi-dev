@@ -1,6 +1,6 @@
 # @abelfubu/pi-dev
 
-Pi extension with Jira tools and skills.
+Pi extension with Jira, GitHub PR, and code-check tools and skills.
 
 ## Install
 
@@ -15,6 +15,10 @@ pi install git:github.com/abelfubu/pi-dev
 - [Atlassian CLI (`acli`)](https://developer.atlassian.com/cloud/acli/guides/install-acli/) installed and authenticated:
   ```bash
   acli auth login
+  ```
+- [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated:
+  ```bash
+  gh auth login
   ```
 - Node 20+.
 
@@ -47,6 +51,14 @@ pi install git:github.com/abelfubu/pi-dev
 | `jira_comment` | Add a comment |
 | `jira_projects` | List projects |
 
+### GitHub PR
+
+| Tool | Purpose |
+|------|---------|
+| `gh_pr_create` | Open a pull request |
+| `gh_pr_view` | View a pull request |
+| `gh_pr_checks` | Show CI status checks for a pull request |
+
 ### Code checks
 
 | Tool | Purpose |
@@ -60,6 +72,7 @@ pi install git:github.com/abelfubu/pi-dev
 ## Skills
 
 - `jira` — how to use the Jira tools.
+- `github-pr` — how to use the GitHub PR tools.
 - `check` — how to run code checks efficiently.
 
 ## Theme
