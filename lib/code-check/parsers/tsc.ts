@@ -1,7 +1,7 @@
 import { runCommand } from "../runner.js";
 import type { CheckItem, CheckResult, ToolName } from "../types.js";
 
-const TS_ERROR_RE = /^(.+)\((\d+),(\d+)\):\s+error\s+(\w+):\s+(.+)$/;
+const TS_ERROR_RE = /^(.+?)(?:\((\d+),(\d+)\):|:(\d+):(\d+) -)\s+error\s+(\w+):\s+(.+)$/;
 
 export async function runTsc(
   cwd: string,
@@ -25,9 +25,9 @@ export async function runTsc(
     if (match) {
       items.push({
         file: match[1],
-        line: Number(match[2]),
-        column: Number(match[3]),
-        message: `TS${match[4]}: ${match[5]}`,
+        line: Number(match[2] || match[4]),
+        column: Number(match[3] || match[5]),
+        message: `TS${match[6]}: ${match[7]}`,
         severity: "error",
       });
     } else if (line.startsWith("error ")) {
@@ -36,7 +36,7 @@ export async function runTsc(
   }
 
   if (items.length === 0 && text.trim()) {
-    items.push({ message: text.trim().split("\n")[0] ?? text.trim() });
+    items.push({ message: text.trim().split("\n")[0] ?? text.trim(), severity: "error" });
   }
 
   const filtered = path
