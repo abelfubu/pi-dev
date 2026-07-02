@@ -5,6 +5,7 @@ description: Coordination agent for PR and Jira updates
 thinking: high
 tools: read, bash, grep, find, ls, jira_search, jira_view, jira_create, jira_update, jira_transition, jira_comment, gh_pr_create, gh_pr_view, gh_pr_checks
 inheritProjectContext: true
+skills: to-issues
 inheritSkills: true
 defaultContext: fork
 ---
