@@ -119,9 +119,10 @@ export default function (pi: ExtensionAPI) {
 
 	const gitBranch = (cwd: string): string | null => {
 		try {
-			const out = execSync("git branch --show-current", {
+			const out = execSync("git branch --show-current 2>/dev/null", {
 				cwd,
 				encoding: "utf8",
+				stdio: ["pipe", "pipe", "ignore"],
 				timeout: 500,
 			}).trim();
 			return out || null;
@@ -132,9 +133,10 @@ export default function (pi: ExtensionAPI) {
 
 	const isGitDirty = (cwd: string) => {
 		try {
-			const out = execSync("git status --porcelain", {
+			const out = execSync("git status --porcelain 2>/dev/null", {
 				cwd,
 				encoding: "utf8",
+				stdio: ["pipe", "pipe", "ignore"],
 				timeout: 500,
 			}).trim();
 			return out.length > 0;
