@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-export async function runAcl(args: string[]): Promise<string> {
+export async function runAcli(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile("acli", args, { encoding: "utf8" }, (err, stdout, stderr) => {
       if (err) {
@@ -15,8 +15,8 @@ export async function runAcl(args: string[]): Promise<string> {
   });
 }
 
-export async function runAclJson(args: string[]): Promise<unknown> {
-  const raw = await runAcl([...args, "--json"]);
+export async function runAcliJson(args: string[]): Promise<unknown> {
+  const raw = await runAcli([...args, "--json"]);
   if (!raw) return {};
   let parsed: any;
   try {
