@@ -51,13 +51,34 @@ pi install git:github.com/abelfubu/pi-dev
 | `jira_comment` | Add a comment |
 | `jira_projects` | List projects |
 
-### GitHub PR
+### GitHub
 
 | Tool | Purpose |
 |------|---------|
-| `gh_pr_create` | Open a pull request |
+| `gh_pr_create` | Create a pull request |
+| `gh_pr_list` | List pull requests |
 | `gh_pr_view` | View a pull request |
 | `gh_pr_checks` | Show CI status checks for a pull request |
+| `gh_pr_merge` | Merge a pull request |
+| `gh_pr_comment` | Comment on a pull request |
+| `gh_pr_close` | Close a pull request |
+| `gh_pr_reopen` | Reopen a pull request |
+| `gh_pr_review` | Submit a review on a pull request |
+| `gh_pr_diff` | Show a pull request diff |
+| `gh_issue_create` | Create an issue |
+| `gh_issue_list` | List issues |
+| `gh_issue_view` | View an issue |
+| `gh_issue_comment` | Comment on an issue |
+| `gh_issue_close` | Close an issue |
+| `gh_issue_reopen` | Reopen an issue |
+| `gh_run_list` | List workflow runs |
+| `gh_run_view` | View a workflow run (including failed logs) |
+| `gh_run_rerun` | Rerun a workflow run |
+| `gh_workflow_list` | List workflows |
+| `gh_workflow_trigger` | Trigger a workflow dispatch |
+| `gh_release_list` | List releases |
+| `gh_release_view` | View a release |
+| `gh_release_create` | Create a release |
 
 ### Code checks
 
@@ -72,7 +93,7 @@ pi install git:github.com/abelfubu/pi-dev
 ## Skills
 
 - `jira` — how to use the Jira tools.
-- `github-pr` — how to use the GitHub PR tools.
+- `github` — how to use the GitHub tools.
 - `check` — how to run code checks efficiently.
 
 ## Theme

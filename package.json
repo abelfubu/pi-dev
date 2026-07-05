@@ -2,19 +2,46 @@
   "name": "@abelfubu/pi-dev",
   "version": "0.1.0",
   "description": "Pi extension with Jira, GitHub PR, and code-check tools and skills",
-  "keywords": ["pi-package", "jira", "atlassian", "pi-extension"],
+  "keywords": [
+    "pi-package",
+    "jira",
+    "atlassian",
+    "pi-extension"
+  ],
   "license": "MIT",
-  "files": ["agents", "chains", "extensions", "lib", "skills", "themes", "README.md", "CONTEXT.md", "docs"],
+  "files": [
+    "agents",
+    "chains",
+    "extensions",
+    "lib",
+    "skills",
+    "themes",
+    "README.md",
+    "CONTEXT.md",
+    "docs"
+  ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "pi": {
-    "extensions": ["extensions"],
-    "skills": ["skills"],
-    "themes": ["themes"],
+    "extensions": [
+      "extensions"
+    ],
+    "skills": [
+      "skills"
+    ],
+    "themes": [
+      "themes"
+    ],
     "subagents": {
-      "agents": ["agents"],
-      "chains": ["chains"]
+      "agents": [
+        "agents"
+      ],
+      "chains": [
+        "chains"
+      ]
     }
   },
   "dependencies": {
@@ -22,8 +49,8 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*",
-    "pi-subagents": "*"
+    "pi-subagents": "*",
+    "typebox": "*"
   },
   "peerDependenciesMeta": {
     "pi-subagents": {
@@ -32,9 +59,10 @@
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.80.2",
-    "typebox": "^1.3.0",
     "jiti": "^2.0.0",
-    "typescript": "^5.6.0"
+    "typebox": "^1.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.6"
   },
   "engines": {
     "node": ">=20"

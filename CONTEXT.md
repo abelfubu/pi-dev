@@ -1,6 +1,6 @@
 # Pi-Dev Extension
 
-A pi extension that registers custom tools for Jira, GitHub pull requests, and local code checks.
+A pi extension that registers custom tools for Jira, GitHub, and local code checks.
 
 ## Code Checks
 
@@ -53,7 +53,7 @@ _Avoid_: default board, main project.
 A Jira issue/ticket. The extension uses the term acli uses (`workitem`), but the tools expose the more familiar term `issue` to the LLM.
 _Avoid_: ticket, task (unless the issue type is Task).
 
-## GitHub PR Tools
+## GitHub Tools
 
 **GitHub CLI**:
 The `gh` command-line tool. Used as the authenticated transport for GitHub operations.
@@ -62,6 +62,22 @@ _Avoid_: gh cli, GitHub command line.
 **Pull Request**:
 A request to merge a head branch into a base branch on GitHub. The tools expose the abbreviation `PR` to the LLM, but the canonical term is `Pull Request`.
 _Avoid_: merge request.
+
+**Issue**:
+A GitHub issue used to track bugs, features, or tasks.
+_Avoid_: ticket, work item.
+
+**Workflow Run**:
+A single execution of a GitHub Actions workflow.
+_Avoid_: action run, CI run.
+
+**Workflow**:
+A GitHub Actions workflow definition stored in `.github/workflows/`.
+_Avoid_: action, pipeline.
+
+**Release**:
+A published GitHub release associated with a tag.
+_Avoid_: version, tag (unless referring to the git tag).
 
 **Head Branch**:
 The branch containing the changes to be merged.
