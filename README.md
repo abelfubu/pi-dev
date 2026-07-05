@@ -1,6 +1,6 @@
 # @abelfubu/pi-dev
 
-Pi extension with Jira, GitHub PR, and code-check tools and skills.
+Pi extension with Jira, GitHub, and code-check tools and skills.
 
 ## Install
 
