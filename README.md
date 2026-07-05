@@ -95,6 +95,7 @@ pi install git:github.com/abelfubu/pi-dev
 - `jira` — how to use the Jira tools.
 - `github` — how to use the GitHub tools.
 - `check` — how to run code checks efficiently.
+- `ast-grep` — when to use ast_grep for structural code searches.
 
 ## Theme
 
