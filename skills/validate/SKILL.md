@@ -1,11 +1,11 @@
 ---
 name: validate
-description: Run the validation pipeline for the current Jira issue — collect /review and manual findings, re-prompt the agent with open items, and update Jira on pass.
+description: Use when the user wants to validate a completed change against a Jira issue, run the validation pipeline, or when another skill needs to close the review loop with a checklist.
 ---
 
-## Purpose
+## Leading word: **pass**
 
-Close the loop between `/review`, manual testing, and the agent. Produces a local validation checklist and re-prompts the agent with open findings until the work passes.
+Validation moves a Jira issue toward **pass**: collect findings, re-prompt the agent, and update Jira only when the checklist is clear.
 
 ## Prerequisites
 
@@ -15,54 +15,36 @@ Close the loop between `/review`, manual testing, and the agent. Produces a loca
 
 ## Process
 
-### 1. Pin the issue
+1. **Pin the issue.** Determine the current Jira issue key. Ask the user if it is not already known.
+2. **Create or read the checklist.** Path: `~/.pi/agent/pi-dev/validation/<issue-key>.md`. Ensure the directory exists. If the file exists, read it; if not, create it with this header:
 
-Determine the current Jira issue key. Ask the user if it is not already known.
+   ```md
+   # Validation Checklist: <issue-key>
+   ```
 
-### 2. Create or read the checklist
+3. **Capture automated findings.** Run the `/review` skill. Parse its output and append each finding as:
 
-Path: `~/.pi/agent/pi-dev/validation/<issue-key>.md`
+   ```md
+   - [ ] <finding description> (source: review)
+   ```
 
-Ensure the directory exists. If the file exists, read it. If not, create it with this header:
+   If the checklist already contains review findings from this run, do not duplicate them.
 
-```md
-# Validation Checklist: <issue-key>
+4. **Show the checklist and wait.** Present the checklist to the user and ask them to either:
+   - Add manual findings with `/finding <description>` or by editing the checklist file directly.
+   - Say `check` when ready for you to re-prompt the agent with open items.
+   - Say `pass` when all items are resolved and you should update Jira.
 
-```
+5. **Re-prompt with open items.** If the user says `check` and there are open items, generate a focused prompt for the agent that includes only the open findings. Do not include resolved items.
 
-### 3. Capture automated findings
+6. **Loop.** After the agent responds, update the checklist: mark any addressed items as resolved (`- [x]`) and add any new review findings. Then return to step 4.
 
-Run the `/review` skill against the current branch or work. Parse its output and append each finding to the checklist as:
+7. **Pass.** If the user says `pass` and the checklist has no open items:
+   1. Use `jira_comment` to add a summary comment on the issue.
+   2. Ask the user which transition to apply, then use `jira_transition` to move the issue to that status.
+   3. Delete the checklist file — it has served its purpose.
 
-```md
-- [ ] <finding description> (source: review)
-```
-
-If the checklist already contains review findings from this run, do not duplicate them.
-
-### 4. Show the checklist and wait
-
-Present the current checklist to the user. Then ask them to either:
-
-- Add manual findings with `/finding <description>` or by editing the checklist file directly.
-- Say `check` when ready for you to re-prompt the agent with open items.
-- Say `pass` when all items are resolved and you should update Jira.
-
-### 5. Re-prompt with open items
-
-If the user says `check` and there are open items, generate a focused prompt for the agent that includes only the open findings. Do not include resolved items.
-
-### 6. Loop
-
-After the agent responds, update the checklist: mark any addressed items as resolved (`- [x]`) and add any new review findings. Then return to step 4.
-
-### 7. Pass
-
-If the user says `pass` and the checklist has no open items:
-
-1. Use `jira_comment` to add a summary comment on the issue.
-2. Ask the user which transition to apply, then use `jira_transition` to move the issue to that status.
-3. Delete the checklist file — it has served its purpose.
+8. **Completion:** The checklist has no open items, Jira is updated with a summary comment and status transition, and the checklist file is removed.
 
 ## Conventions
 

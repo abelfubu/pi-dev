@@ -1,13 +1,31 @@
 ---
 name: jira
-description: Use the Jira tools from the @abelfubu/pi-dev extension to search, view, create, update, transition, and comment on Jira issues.
+description: Use when the user wants to track work in Jira — search, view, create, update, transition, or comment on issues — or when another skill needs to drive Jira operations.
 ---
 
-## Purpose
+## Leading word: **track**
 
-Use these tools when the user wants to interact with Jira: finding tickets, reading details, creating work, updating fields, moving tickets through a workflow, or adding comments.
+The Jira tools track work items through their lifecycle: find, create, update, move, and discuss.
 
-## Tools
+## Common flows
+
+### Triage issues
+1. Search: `jira_search`.
+2. View: `jira_view`.
+3. **Completion:** The issue details are surfaced.
+
+### Create work
+1. Confirm the project key with `jira_projects` if unknown.
+2. Create: `jira_create`.
+3. **Completion:** The new issue key and URL are returned.
+
+### Move work forward
+1. View the current status: `jira_view`.
+2. List available transitions: `jira_transitions`.
+3. Transition: `jira_transition`.
+4. **Completion:** The issue is in the new status.
+
+## Tool reference
 
 - `jira_search` — find issues with JQL.
 - `jira_view` — read one issue by key.

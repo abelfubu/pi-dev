@@ -1,11 +1,11 @@
 ---
 name: check
-description: Run code checks (eslint, tsc, vitest) efficiently and return a concise summary.
+description: Use when the user wants to run code checks (eslint, tsc, vitest) efficiently, verify a change before committing, or when another skill needs a concise check summary.
 ---
 
-## Purpose
+## Leading word: **verify**
 
-Use code checks to verify local code changes without wasting tokens. The `code_check_*` tools run faster and return smaller outputs than raw `bash`.
+Run checks to verify local changes without wasting tokens. The `code_check_*` tools are faster and return smaller outputs than raw `bash`.
 
 ## Process
 
@@ -13,6 +13,7 @@ Use code checks to verify local code changes without wasting tokens. The `code_c
 2. **Run after edits.** After any batch of code changes that could affect types, lint, or tests, call `code_check_parallel` with the available tools.
 3. **Single checks.** If you only need one check, use `code_check_eslint`, `code_check_tsc`, or `code_check_vitest`.
 4. **Show only summaries.** Do not print full command output to the user; the tool already returns a concise summary.
+5. **Completion:** The summary is shown and any failures are surfaced with the tool name, error count, and the first three error messages.
 
 ## Conventions
 

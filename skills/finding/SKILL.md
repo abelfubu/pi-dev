@@ -1,11 +1,11 @@
 ---
 name: finding
-description: Add a manual finding to the validation checklist for the current Jira issue.
+description: Use when the user wants to record a manual testing finding, add a defect to the validation checklist, or when another skill needs to capture a manual finding for the current Jira issue.
 ---
 
-## Purpose
+## Leading word: **capture**
 
-Capture a manual testing finding so the `/validate` skill can track it and re-prompt the agent.
+Capture manual findings so the `/validate` skill can track them and re-prompt the agent.
 
 ## Process
 
@@ -18,7 +18,7 @@ Capture a manual testing finding so the `/validate` skill can track it and re-pr
    - [ ] <finding description> (source: manual)
    ```
 
-5. Confirm the finding was added and show the updated checklist.
+5. **Completion:** The finding appears in the checklist and the updated checklist is shown to the user.
 
 ## Conventions
 
