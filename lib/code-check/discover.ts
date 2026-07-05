@@ -15,6 +15,9 @@ export async function discoverCodeChecks(cwd: string): Promise<DiscoverResult> {
     eslint: config.codeChecks?.eslint,
     tsc: config.codeChecks?.tsc,
     vitest: config.codeChecks?.vitest,
+    cargo_check: config.codeChecks?.cargo_check,
+    cargo_clippy: config.codeChecks?.cargo_clippy,
+    cargo_test: config.codeChecks?.cargo_test,
   };
 
   const pkg = await readPackageJson(cwd);
@@ -24,6 +27,9 @@ export async function discoverCodeChecks(cwd: string): Promise<DiscoverResult> {
   if (overrides.eslint || deps.has("eslint")) available.push("eslint");
   if (overrides.tsc || deps.has("typescript") || existsSync(join(cwd, "tsconfig.json"))) available.push("tsc");
   if (overrides.vitest || deps.has("vitest")) available.push("vitest");
+  if (overrides.cargo_check || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_check");
+  if (overrides.cargo_clippy || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_clippy");
+  if (overrides.cargo_test || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_test");
 
   return { available, overrides };
 }

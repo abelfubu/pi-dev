@@ -3,6 +3,9 @@ import { Type } from "typebox";
 import { discoverCodeChecks } from "../lib/code-check/discover.js";
 import { formatCheckResult } from "../lib/code-check/format.js";
 import { runParallelChecks } from "../lib/code-check/parallel.js";
+import { runCargoCheck } from "../lib/code-check/parsers/cargo-check.js";
+import { runCargoClippy } from "../lib/code-check/parsers/cargo-clippy.js";
+import { runCargoTest } from "../lib/code-check/parsers/cargo-test.js";
 import { runEslint } from "../lib/code-check/parsers/eslint.js";
 import { runTsc } from "../lib/code-check/parsers/tsc.js";
 import { runVitest } from "../lib/code-check/parsers/vitest.js";
@@ -12,6 +15,9 @@ const toolNameType = Type.Union([
   Type.Literal("eslint"),
   Type.Literal("tsc"),
   Type.Literal("vitest"),
+  Type.Literal("cargo_check"),
+  Type.Literal("cargo_clippy"),
+  Type.Literal("cargo_test"),
 ]);
 
 export default function (pi: ExtensionAPI) {
@@ -106,11 +112,74 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "code_check_cargo_check",
+    label: "Code Check: Cargo Check",
+    description: "Run cargo check and return a concise summary of compilation errors",
+    parameters: singleToolParams,
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      try {
+        const cwd = ctx?.cwd ?? process.cwd();
+        const { overrides } = await discoverCodeChecks(cwd);
+        const result = await runCargoCheck(cwd, params.path, overrides.cargo_check);
+        return {
+          content: [{ type: "text", text: formatCheckResult(result) }],
+          details: result,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true, details: {} };
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: "code_check_cargo_clippy",
+    label: "Code Check: Cargo Clippy",
+    description: "Run cargo clippy and return a concise summary of lint warnings and errors",
+    parameters: singleToolParams,
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      try {
+        const cwd = ctx?.cwd ?? process.cwd();
+        const { overrides } = await discoverCodeChecks(cwd);
+        const result = await runCargoClippy(cwd, params.path, overrides.cargo_clippy);
+        return {
+          content: [{ type: "text", text: formatCheckResult(result) }],
+          details: result,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true, details: {} };
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: "code_check_cargo_test",
+    label: "Code Check: Cargo Test",
+    description: "Run cargo test and return a concise summary of test failures",
+    parameters: singleToolParams,
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      try {
+        const cwd = ctx?.cwd ?? process.cwd();
+        const { overrides } = await discoverCodeChecks(cwd);
+        const result = await runCargoTest(cwd, params.path, overrides.cargo_test);
+        return {
+          content: [{ type: "text", text: formatCheckResult(result) }],
+          details: result,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true, details: {} };
+      }
+    },
+  });
+
+  pi.registerTool({
     name: "code_check_parallel",
     label: "Code Check: Parallel",
     description: "Run multiple code checks in parallel and return a combined summary",
     parameters: Type.Object({
-      path: Type.Optional(Type.String({ description: "Path to scope eslint/vitest; tsc is filtered after" })),
+      path: Type.Optional(Type.String({ description: "Path to scope the check; project-wide results are filtered to the given path" })),
       tools: Type.Optional(Type.Array(toolNameType, { description: "Tools to run; defaults to available checks" })),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {

@@ -1,4 +1,4 @@
-export type ToolName = "eslint" | "tsc" | "vitest";
+export type ToolName = "eslint" | "tsc" | "vitest" | "cargo_check" | "cargo_clippy" | "cargo_test";
 
 export interface CheckItem {
   file?: string;

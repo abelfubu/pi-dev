@@ -31,7 +31,10 @@ pi install git:github.com/abelfubu/pi-dev
   "codeChecks": {
     "eslint": "npm run lint:strict",
     "vitest": "npm run test:unit",
-    "tsc": "npm run typecheck"
+    "tsc": "npm run typecheck",
+    "cargo_check": "cargo check --all-targets --message-format=json",
+    "cargo_clippy": "cargo clippy --all-targets --message-format=json",
+    "cargo_test": "cargo test --all-targets --message-format=json"
   }
 }
 ```
@@ -88,6 +91,9 @@ pi install git:github.com/abelfubu/pi-dev
 | `code_check_eslint` | Run ESLint and summarize errors |
 | `code_check_tsc` | Run `tsc --noEmit` and summarize errors |
 | `code_check_vitest` | Run Vitest and summarize failures |
+| `code_check_cargo_check` | Run `cargo check` and summarize compilation errors |
+| `code_check_cargo_clippy` | Run `cargo clippy` and summarize warnings/errors |
+| `code_check_cargo_test` | Run `cargo test` and summarize test failures |
 | `code_check_parallel` | Run selected checks in parallel |
 
 ## Skills

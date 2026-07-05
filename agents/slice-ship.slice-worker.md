@@ -2,7 +2,7 @@
 name: slice-worker
 package: slice-ship
 description: Implementation agent for vertical slices with full project tool access
-tools: read, write, edit, bash, grep, find, ls, fffind, ffgrep, ast_grep_search, ast_grep_replace, subagent, jira_search, jira_view, jira_create, jira_update, jira_transition, jira_comment, code_check_eslint, code_check_tsc, code_check_vitest, code_check_parallel
+tools: read, write, edit, bash, grep, find, ls, fffind, ffgrep, ast_grep_search, ast_grep_replace, subagent, jira_search, jira_view, jira_create, jira_update, jira_transition, jira_comment, code_check_eslint, code_check_tsc, code_check_vitest, code_check_cargo_check, code_check_cargo_clippy, code_check_cargo_test, code_check_parallel
 systemPromptMode: replace
 inheritProjectContext: true
 inheritSkills: true

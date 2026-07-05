@@ -7,6 +7,9 @@ export interface CodeCheckConfig {
   eslint?: string;
   tsc?: string;
   vitest?: string;
+  cargo_check?: string;
+  cargo_clippy?: string;
+  cargo_test?: string;
 }
 
 export interface PiDevConfig {

@@ -1,4 +1,7 @@
 import { discoverCodeChecks } from "./discover.js";
+import { runCargoCheck } from "./parsers/cargo-check.js";
+import { runCargoClippy } from "./parsers/cargo-clippy.js";
+import { runCargoTest } from "./parsers/cargo-test.js";
 import { runEslint } from "./parsers/eslint.js";
 import { runTsc } from "./parsers/tsc.js";
 import { runVitest } from "./parsers/vitest.js";
@@ -8,6 +11,9 @@ const runners: Record<ToolName, (cwd: string, path?: string, override?: string) 
   eslint: runEslint,
   tsc: runTsc,
   vitest: runVitest,
+  cargo_check: runCargoCheck,
+  cargo_clippy: runCargoClippy,
+  cargo_test: runCargoTest,
 };
 
 export interface ParallelOptions {
