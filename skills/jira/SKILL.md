@@ -10,31 +10,31 @@ The Jira tools track work items through their lifecycle: find, create, update, m
 ## Common flows
 
 ### Triage issues
-1. Search: `jira_search`.
-2. View: `jira_view`.
+1. Search: `jira` with `action: search` and a JQL `jql` query.
+2. View: `jira` with `action: view` and an issue `key`.
 3. **Completion:** The issue details are surfaced.
 
 ### Create work
-1. Confirm the project key with `jira_projects` if unknown.
-2. Create: `jira_create`.
+1. Confirm the project key with `jira` action `projects` if unknown.
+2. Create: `jira` with `action: create`, `project`, `type`, and `summary`.
 3. **Completion:** The new issue key and URL are returned.
 
 ### Move work forward
-1. View the current status: `jira_view`.
-2. List available transitions: `jira_transitions`.
-3. Transition: `jira_transition`.
+1. View the current status: `jira` with `action: view`.
+2. List available transitions: `jira` with `action: transitions`.
+3. Transition: `jira` with `action: transition` and `status`.
 4. **Completion:** The issue is in the new status.
 
 ## Tool reference
 
-- `jira_search` — find issues with JQL.
-- `jira_view` — read one issue by key.
-- `jira_create` — create a new issue.
-- `jira_update` — edit summary, labels, or assignee.
-- `jira_transition` — change an issue's status.
-- `jira_transitions` — list available status transitions for an issue.
-- `jira_comment` — add a comment.
-- `jira_projects` — list projects to discover keys.
+- `jira` with `action: search` — find issues with JQL.
+- `jira` with `action: view` — read one issue by key.
+- `jira` with `action: create` — create a new issue.
+- `jira` with `action: update` — edit summary, labels, or assignee.
+- `jira` with `action: transition` — change an issue's status.
+- `jira` with `action: transitions` — list available status transitions for an issue.
+- `jira` with `action: comment` — add a comment.
+- `jira` with `action: projects` — list projects to discover keys.
 
 ## Conventions
 

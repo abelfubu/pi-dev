@@ -60,11 +60,9 @@ describe("code-check-tools extension", () => {
     await registerExtension(pi);
     const names = pi.tools.map((t: ToolDef) => t.name).sort();
 
+    expect(names).toContain("code_check");
     expect(names).toContain("code_check_discover");
     expect(names).toContain("code_check_parallel");
-    expect(names).toContain("code_check_tsc");
-    expect(names).toContain("code_check_vitest");
-    expect(names).not.toContain("code_check_eslint");
     expect(names).not.toContain("code_check_cargo_check");
     expect(names).not.toContain("code_check_cargo_clippy");
     expect(names).not.toContain("code_check_cargo_test");
@@ -80,11 +78,9 @@ describe("code-check-tools extension", () => {
     await registerExtension(pi);
     const names = pi.tools.map((t: ToolDef) => t.name).sort();
 
+    expect(names).toContain("code_check");
     expect(names).toContain("code_check_discover");
     expect(names).toContain("code_check_parallel");
-    expect(names).toContain("code_check_cargo_check");
-    expect(names).toContain("code_check_cargo_clippy");
-    expect(names).toContain("code_check_cargo_test");
     expect(names).not.toContain("code_check_tsc");
     expect(names).not.toContain("code_check_vitest");
     expect(names).not.toContain("code_check_eslint");

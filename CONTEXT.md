@@ -102,3 +102,21 @@ _Avoid_: check (reserved for Code Check).
 **Ship**:
 To publish a completed slice of work by opening a GitHub pull request and updating the related Jira issue.
 _Avoid_: release, deploy.
+
+## Delegation
+
+**Handoff**:
+The action of delegating a scoped slice of work to a fresh interactive `pi` session in a new Herdr tab by providing a title and a markdown prompt. Performed by the `herdr_handoff` tool.
+_Avoid_: subagent, spawn, pi-subagents.
+
+**Slice**:
+A self-contained unit of work handed off to a new Herdr tab.
+_Avoid_: task, feature, ticket.
+
+**Herdr Tab**:
+A new subcontext inside the current Herdr workspace, used as the target for a handoff.
+_Avoid_: pane, window, workspace.
+
+**Prompt**:
+The markdown instructions passed to a new interactive `pi` session as part of a handoff.
+_Avoid_: message, request, instruction.

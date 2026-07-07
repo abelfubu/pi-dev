@@ -11,7 +11,7 @@ Run checks to verify local changes without wasting tokens. The `code_check_*` to
 
 1. **Discover once.** At the start of a coding task, call `code_check_discover` to see which tools are available.
 2. **Run after edits.** After any batch of code changes that could affect types, lint, or tests, call `code_check_parallel` with the available tools.
-3. **Single checks.** If you only need one check, use `code_check_eslint`, `code_check_tsc`, `code_check_vitest`, `code_check_cargo_check`, `code_check_cargo_clippy`, or `code_check_cargo_test`.
+3. **Single checks.** If you only need one check, use `code_check` with `name` set to one of `eslint`, `tsc`, `vitest`, `cargo_check`, `cargo_clippy`, or `cargo_test`.
 4. **Show only summaries.** Do not print full command output to the user; the tool already returns a concise summary.
 5. **Completion:** The summary is shown and any failures are surfaced with the tool name, error count, and the first three error messages.
 

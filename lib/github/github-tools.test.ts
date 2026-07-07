@@ -49,32 +49,7 @@ describe("github-tools", () => {
     const api = createMockApi();
     registerGithubTools(api);
 
-    const expected = [
-      "gh_pr_create",
-      "gh_pr_list",
-      "gh_pr_view",
-      "gh_pr_checks",
-      "gh_pr_merge",
-      "gh_pr_comment",
-      "gh_pr_close",
-      "gh_pr_reopen",
-      "gh_pr_review",
-      "gh_pr_diff",
-      "gh_issue_create",
-      "gh_issue_list",
-      "gh_issue_view",
-      "gh_issue_comment",
-      "gh_issue_close",
-      "gh_issue_reopen",
-      "gh_run_list",
-      "gh_run_view",
-      "gh_run_rerun",
-      "gh_workflow_list",
-      "gh_workflow_trigger",
-      "gh_release_list",
-      "gh_release_view",
-      "gh_release_create",
-    ];
+    const expected = ["gh_pr", "gh_issue", "gh_run", "gh_workflow", "gh_release"];
 
     for (const name of expected) {
       expect(api.tools.has(name), `expected ${name} to be registered`).toBe(true);
@@ -91,7 +66,8 @@ describe("github-tools", () => {
         exitCode: 0,
       });
 
-      const result = await executeTool(api, "gh_pr_create", {
+      const result = await executeTool(api, "gh_pr", {
+        action: "create",
         title: "Test PR",
         body: "Test body",
         label: "bug,enhancement",
@@ -111,7 +87,8 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce([]);
 
-      await executeTool(api, "gh_pr_list", {
+      await executeTool(api, "gh_pr", {
+        action: "list",
         state: "closed",
         label: "bug",
         limit: 5,
@@ -132,7 +109,7 @@ describe("github-tools", () => {
         title: "Test PR",
       });
 
-      await executeTool(api, "gh_pr_view", { number: 42 });
+      await executeTool(api, "gh_pr", { action: "view", number: 42 });
       expect(lastRunGhJsonArgs()).toContain("pr");
       expect(lastRunGhJsonArgs()).toContain("view");
       expect(lastRunGhJsonArgs()).toContain("42");
@@ -147,7 +124,7 @@ describe("github-tools", () => {
         exitCode: 0,
       });
 
-      await executeTool(api, "gh_pr_checks", { number: 42, required: true });
+      await executeTool(api, "gh_pr", { action: "checks", number: 42, required: true });
       expect(lastRunGhArgs()).toContain("--required");
       expect(lastRunGhArgs()).toContain("42");
     });
@@ -157,7 +134,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_merge", { number: 42, method: "squash", deleteBranch: true });
+      await executeTool(api, "gh_pr", { action: "merge", number: 42, method: "squash", deleteBranch: true });
       expect(lastRunGhArgs()).toEqual([
         "pr", "merge", "42", "--squash", "--delete-branch",
       ]);
@@ -168,7 +145,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_merge", { number: 42 });
+      await executeTool(api, "gh_pr", { action: "merge", number: 42 });
       expect(lastRunGhArgs()).toEqual(["pr", "merge", "42", "--merge"]);
     });
 
@@ -177,7 +154,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_comment", { number: 42, body: "LGTM" });
+      await executeTool(api, "gh_pr", { action: "comment", number: 42, body: "LGTM" });
       expect(lastRunGhArgs()).toEqual(["pr", "comment", "42", "--body", "LGTM"]);
     });
 
@@ -186,7 +163,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_close", { number: 42, comment: "Closing" });
+      await executeTool(api, "gh_pr", { action: "close", number: 42, comment: "Closing" });
       expect(lastRunGhArgs()).toContain("close");
       expect(lastRunGhArgs()).toContain("--comment");
       expect(lastRunGhArgs()).toContain("Closing");
@@ -197,7 +174,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_reopen", { number: 42 });
+      await executeTool(api, "gh_pr", { action: "reopen", number: 42 });
       expect(lastRunGhArgs()).toEqual(["pr", "reopen", "42"]);
     });
 
@@ -206,7 +183,12 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_pr_review", { number: 42, action: "approve", body: "LGTM" });
+      await executeTool(api, "gh_pr", {
+        action: "review",
+        number: 42,
+        reviewAction: "approve",
+        body: "LGTM",
+      });
       expect(lastRunGhArgs()).toEqual(["pr", "review", "42", "--approve", "--body", "LGTM"]);
     });
 
@@ -215,7 +197,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "diff output", stderr: "", exitCode: 0 });
 
-      const result = await executeTool(api, "gh_pr_diff", { number: 42 });
+      const result = await executeTool(api, "gh_pr", { action: "diff", number: 42 });
       expect(lastRunGhArgs()).toEqual(["pr", "diff", "42"]);
       expect(result.content[0].text).toBe("diff output");
     });
@@ -231,7 +213,8 @@ describe("github-tools", () => {
         exitCode: 0,
       });
 
-      await executeTool(api, "gh_issue_create", {
+      await executeTool(api, "gh_issue", {
+        action: "create",
         title: "Bug",
         body: "Details",
         label: "bug",
@@ -248,7 +231,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce([]);
 
-      await executeTool(api, "gh_issue_list", { state: "all", limit: 10 });
+      await executeTool(api, "gh_issue", { action: "list", state: "all", limit: 10 });
       expect(lastRunGhJsonArgs()).toContain("issue");
       expect(lastRunGhJsonArgs()).toContain("list");
       expect(lastRunGhJsonArgs()).toContain("--state");
@@ -260,7 +243,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce({ number: 1, title: "Bug" });
 
-      await executeTool(api, "gh_issue_view", { number: 1 });
+      await executeTool(api, "gh_issue", { action: "view", number: 1 });
       expect(lastRunGhJsonArgs()).toContain("issue");
       expect(lastRunGhJsonArgs()).toContain("view");
       expect(lastRunGhJsonArgs()).toContain("1");
@@ -271,7 +254,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_issue_comment", { number: 1, body: "Thanks" });
+      await executeTool(api, "gh_issue", { action: "comment", number: 1, body: "Thanks" });
       expect(lastRunGhArgs()).toEqual(["issue", "comment", "1", "--body", "Thanks"]);
     });
 
@@ -280,7 +263,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_issue_close", { number: 1, reason: "not_planned" });
+      await executeTool(api, "gh_issue", { action: "close", number: 1, reason: "not_planned" });
       expect(lastRunGhArgs()).toContain("close");
       expect(lastRunGhArgs()).toContain("not_planned");
     });
@@ -290,7 +273,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_issue_reopen", { number: 1 });
+      await executeTool(api, "gh_issue", { action: "reopen", number: 1 });
       expect(lastRunGhArgs()).toEqual(["issue", "reopen", "1"]);
     });
   });
@@ -301,7 +284,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce([]);
 
-      await executeTool(api, "gh_run_list", { workflow: "ci.yml", branch: "main", status: "failure" });
+      await executeTool(api, "gh_run", { action: "list", workflow: "ci.yml", branch: "main", status: "failure" });
       expect(lastRunGhJsonArgs()).toContain("run");
       expect(lastRunGhJsonArgs()).toContain("list");
       expect(lastRunGhJsonArgs()).toContain("--workflow");
@@ -313,7 +296,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce({ databaseId: 123 });
 
-      await executeTool(api, "gh_run_view", { id: 123 });
+      await executeTool(api, "gh_run", { action: "view", id: 123 });
       expect(lastRunGhJsonArgs()).toContain("run");
       expect(lastRunGhJsonArgs()).toContain("view");
       expect(lastRunGhJsonArgs()).toContain("123");
@@ -324,7 +307,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "error log", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_run_view", { id: 123, logFailed: true });
+      await executeTool(api, "gh_run", { action: "view", id: 123, logFailed: true });
       expect(lastRunGhArgs()).toContain("--log-failed");
     });
 
@@ -333,7 +316,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_run_rerun", { id: 123, failed: true });
+      await executeTool(api, "gh_run", { action: "rerun", id: 123, failed: true });
       expect(lastRunGhArgs()).toEqual(["run", "rerun", "123", "--failed"]);
     });
 
@@ -342,7 +325,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce([]);
 
-      await executeTool(api, "gh_workflow_list", { all: true });
+      await executeTool(api, "gh_workflow", { action: "list", all: true });
       expect(lastRunGhJsonArgs()).toContain("workflow");
       expect(lastRunGhJsonArgs()).toContain("list");
       expect(lastRunGhJsonArgs()).toContain("--all");
@@ -353,7 +336,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGh.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
-      await executeTool(api, "gh_workflow_trigger", { workflow: "deploy.yml", ref: "main", field: "env=prod" });
+      await executeTool(api, "gh_workflow", { action: "trigger", workflow: "deploy.yml", ref: "main", field: "env=prod" });
       expect(lastRunGhArgs()).toContain("workflow");
       expect(lastRunGhArgs()).toContain("run");
       expect(lastRunGhArgs()).toContain("deploy.yml");
@@ -368,7 +351,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce([]);
 
-      await executeTool(api, "gh_release_list", { excludeDrafts: true });
+      await executeTool(api, "gh_release", { action: "list", excludeDrafts: true });
       expect(lastRunGhJsonArgs()).toContain("release");
       expect(lastRunGhJsonArgs()).toContain("list");
       expect(lastRunGhJsonArgs()).toContain("--exclude-drafts");
@@ -379,7 +362,7 @@ describe("github-tools", () => {
       registerGithubTools(api);
       mockRunGhJson.mockResolvedValueOnce({ tagName: "v1.0.0" });
 
-      await executeTool(api, "gh_release_view", { tag: "v1.0.0" });
+      await executeTool(api, "gh_release", { action: "view", tag: "v1.0.0" });
       expect(lastRunGhJsonArgs()).toContain("release");
       expect(lastRunGhJsonArgs()).toContain("view");
       expect(lastRunGhJsonArgs()).toContain("v1.0.0");
@@ -394,7 +377,7 @@ describe("github-tools", () => {
         exitCode: 0,
       });
 
-      await executeTool(api, "gh_release_create", { tag: "v1.0.0", title: "Release", draft: true });
+      await executeTool(api, "gh_release", { action: "create", tag: "v1.0.0", title: "Release", draft: true });
       expect(lastRunGhArgs()).toContain("release");
       expect(lastRunGhArgs()).toContain("create");
       expect(lastRunGhArgs()).toContain("v1.0.0");

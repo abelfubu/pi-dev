@@ -11,57 +11,23 @@ import { runTsc } from "../lib/code-check/parsers/tsc.js";
 import { runVitest } from "../lib/code-check/parsers/vitest.js";
 import type { CheckResult, ToolName } from "../lib/code-check/types.js";
 
-const singleToolParams = Type.Object({
-  path: Type.Optional(Type.String({ description: "Path to scope the check (file or directory)" })),
-});
+const runners: Record<ToolName, RunCheck> = {
+  eslint: runEslint,
+  tsc: runTsc,
+  vitest: runVitest,
+  cargo_check: runCargoCheck,
+  cargo_clippy: runCargoClippy,
+  cargo_test: runCargoTest,
+};
 
 type RunCheck = (cwd: string, path?: string, override?: string) => Promise<CheckResult>;
 
-interface ToolDefinition {
-  name: ToolName;
-  label: string;
-  description: string;
-  run: RunCheck;
+function buildNameSchema(available: ToolName[]): TSchema {
+  const literals = available.map((name) => Type.Literal(name));
+  return literals.length === 1
+    ? literals[0]
+    : Type.Union(literals, { description: "Code check to run" });
 }
-
-const toolDefinitions: ToolDefinition[] = [
-  {
-    name: "eslint",
-    label: "Code Check: ESLint",
-    description: "Run ESLint and return a concise summary of errors",
-    run: runEslint,
-  },
-  {
-    name: "tsc",
-    label: "Code Check: TypeScript",
-    description: "Run tsc --noEmit and return a concise summary of errors",
-    run: runTsc,
-  },
-  {
-    name: "vitest",
-    label: "Code Check: Vitest",
-    description: "Run Vitest and return a concise summary of test failures",
-    run: runVitest,
-  },
-  {
-    name: "cargo_check",
-    label: "Code Check: Cargo Check",
-    description: "Run cargo check and return a concise summary of compilation errors",
-    run: runCargoCheck,
-  },
-  {
-    name: "cargo_clippy",
-    label: "Code Check: Cargo Clippy",
-    description: "Run cargo clippy and return a concise summary of lint warnings and errors",
-    run: runCargoClippy,
-  },
-  {
-    name: "cargo_test",
-    label: "Code Check: Cargo Test",
-    description: "Run cargo test and return a concise summary of test failures",
-    run: runCargoTest,
-  },
-];
 
 function buildParallelToolsSchema(available: ToolName[]): TSchema | undefined {
   if (available.length === 0) return undefined;
@@ -75,7 +41,6 @@ function buildParallelToolsSchema(available: ToolName[]): TSchema | undefined {
 export default async function (pi: ExtensionAPI) {
   const cwd = process.cwd();
   const { available } = await discoverCodeChecks(cwd);
-  const availableSet = new Set(available);
 
   pi.registerTool({
     name: "code_check_discover",
@@ -100,19 +65,33 @@ export default async function (pi: ExtensionAPI) {
     },
   });
 
-  for (const def of toolDefinitions) {
-    if (!availableSet.has(def.name)) continue;
-
+  if (available.length > 0) {
     pi.registerTool({
-      name: `code_check_${def.name}`,
-      label: def.label,
-      description: def.description,
-      parameters: singleToolParams,
+      name: "code_check",
+      label: "Code Check",
+      description: "Run a single code check and return a concise summary",
+      parameters: Type.Object({
+        name: buildNameSchema(available),
+        path: Type.Optional(
+          Type.String({
+            description: "Path to scope the check (file or directory)",
+          })
+        ),
+      }),
       async execute(_id, params, _signal, _onUpdate, ctx) {
         try {
           const projectCwd = ctx?.cwd ?? process.cwd();
           const { overrides } = await discoverCodeChecks(projectCwd);
-          const result = await def.run(projectCwd, params.path, overrides[def.name]);
+          const name = params.name as ToolName;
+          const run = runners[name];
+          if (!run) {
+            return {
+              content: [{ type: "text", text: `Unknown code check: ${name}` }],
+              isError: true,
+              details: {},
+            };
+          }
+          const result = await run(projectCwd, params.path as string | undefined, overrides[name]);
           return {
             content: [{ type: "text", text: formatCheckResult(result) }],
             details: result,
