@@ -96,6 +96,8 @@ pi install git:github.com/abelfubu/pi-dev
 | `code_check_cargo_test` | Run `cargo test` and summarize test failures |
 | `code_check_parallel` | Run selected checks in parallel |
 
+Only the checks relevant to the current project are registered as individual tools (`code_check_eslint`, `code_check_tsc`, `code_check_vitest`, `code_check_cargo_check`, `code_check_cargo_clippy`, `code_check_cargo_test`). `code_check_discover` and `code_check_parallel` are always available.
+
 ## Skills
 
 - `jira` — how to use the Jira tools.
