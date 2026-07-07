@@ -2,8 +2,48 @@ import { Parser } from "extended-markdown-adf-parser";
 
 const parser = new Parser();
 
+// Atlassian's ADF spec requires block content (e.g. paragraph) inside table cells/headers.
+// The parser emits bare inline nodes (text) directly under tableCell/tableHeader, which
+// Atlassian rejects with INVALID_INPUT. Wrap any non-block child in a paragraph.
+function wrapTableCellChildren(node: any): any {
+  if (!node || typeof node !== "object") return node;
+  const blockTypes = new Set([
+    "paragraph",
+    "heading",
+    "bulletList",
+    "orderedList",
+    "codeBlock",
+    "mediaGroup",
+    "mediaSingle",
+    "blockquote",
+    "panel",
+    "table",
+    "decisionList",
+    "taskList",
+    "nestedExpand",
+  ]);
+  const wrap = (n: any): any => {
+    if (!n || !Array.isArray(n.content)) return n;
+    n.content = n.content.map((child: any) => {
+      if (child && typeof child === "object" && !blockTypes.has(child.type)) {
+        return { type: "paragraph", content: [child] };
+      }
+      return child;
+    });
+    return n;
+  };
+  if (node.type === "tableCell" || node.type === "tableHeader") {
+    return wrap(node);
+  }
+  if (Array.isArray(node.content)) {
+    node.content = node.content.map(wrapTableCellChildren);
+  }
+  return node;
+}
+
 export function markdownToAdf(markdown: string): unknown {
-  return parser.markdownToAdf(markdown);
+  const adf = parser.markdownToAdf(markdown);
+  return wrapTableCellChildren(adf);
 }
 
 export function adfToMarkdown(adf: unknown): string {
