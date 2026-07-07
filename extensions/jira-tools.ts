@@ -52,12 +52,19 @@ export default function (pi: ExtensionAPI) {
         description: "Comma-separated fields",
         default: "key,summary,status,issuetype,priority,assignee,reporter,description,created,updated",
       })),
+      comments: Type.Optional(Type.Boolean({
+        description: "Include comments in the output", default: false })),
     }),
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
+        let fields = params.fields ?? "key,summary,status,issuetype,priority,assignee,reporter,description,created,updated";
+        if (params.comments) {
+          fields = fields.split(",").map(f => f.trim()).filter(f => f && f !== "comment").join(",");
+          fields = fields ? `${fields},comment` : "comment";
+        }
         const output = await runAclJson([
           "jira", "workitem", "view", params.key,
-          "--fields", params.fields ?? "key,summary,status,issuetype,priority,assignee,reporter,description,created,updated",
+          "--fields", fields,
         ]);
         return {
           content: [{ type: "text", text: formatIssue(output) }],

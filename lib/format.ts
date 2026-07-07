@@ -70,7 +70,7 @@ export function formatIssue(issue: any): string {
   const assignee = fields.assignee?.displayName ?? "Unassigned";
   const reporter = fields.reporter?.displayName ?? "?";
   const priority = fields.priority?.name ?? "?";
-  return `**${issue.key}**: ${fields.summary}
+  const sections = [`**${issue.key}**: ${fields.summary}
 
 - **Type:** ${fields.issuetype?.name ?? "?"}
 - **Status:** ${fields.status?.name ?? "?"}
@@ -81,7 +81,24 @@ export function formatIssue(issue: any): string {
 - **Updated:** ${fields.updated}
 
 **Description**
-${description}`;
+${description}`];
+  const comments = fields.comment?.comments;
+  if (Array.isArray(comments) && comments.length > 0) {
+    sections.push(`\n**Comments**\n${formatComments(comments)}`);
+  }
+  return sections.join("");
+}
+
+export function formatComments(comments: any[]): string {
+  if (!Array.isArray(comments) || comments.length === 0) return "_No comments_";
+  return comments
+    .map((c: any) => {
+      const author = c.author?.displayName ?? "?";
+      const created = c.created ?? "";
+      const body = c.body ? adfToMarkdown(c.body) : "";
+      return `**${author}** · ${created}\n${body}`;
+    })
+    .join("\n\n---\n\n");
 }
 
 export function formatTransitions(transitions: any[]): string {
