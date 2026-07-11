@@ -48,6 +48,7 @@ const SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 	coder: {
 		name: "coder",
 		tools: ["read", "edit", "write", "bash", "fffind", "ffgrep", "ast_grep_search", "ast_grep_replace", "code_check_discover", "code_check", "code_check_parallel"],
+		skills: ["tdd"],
 		layout: "tab",
 	},
 	scout: {
@@ -97,7 +98,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 
 		try {
 			existsSync(socketPath) && rmSync(socketPath);
-		} catch {}
+		} catch { }
 
 		const server = net.createServer((conn) => {
 			let buffer = "";
@@ -111,7 +112,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 					handleNotifyMessage(conn, line, pi);
 				}
 			});
-			conn.on("error", () => {});
+			conn.on("error", () => { });
 		});
 
 		await new Promise<void>((resolve, reject) => {
@@ -125,10 +126,10 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 		const cleanup = () => {
 			try {
 				server.close();
-			} catch {}
+			} catch { }
 			try {
 				notifySocketDir && rmSync(notifySocketDir, { recursive: true, force: true });
-			} catch {}
+			} catch { }
 			notifySocketServer = null;
 			notifySocketPath = null;
 		};
@@ -353,7 +354,7 @@ async function executeSubagent(
 		for (const skillPath of skillPaths) {
 			piArgs.push("--skill", skillPath);
 		}
-		piArgs.push("--tools", [...profile.tools, "subagent_notify"].join(","));
+		piArgs.push("--tools", [...profile.tools, "subagent_notify", "todo"].join(","));
 		const model = params.model ?? profile.model;
 		if (model) piArgs.push("--model", model);
 		for (const file of files) {
@@ -396,13 +397,13 @@ export default function (pi: ExtensionAPI) {
 	if (notifySocketServer) {
 		try {
 			notifySocketServer.close();
-		} catch {}
+		} catch { }
 		notifySocketServer = null;
 	}
 	if (notifySocketDir) {
 		try {
 			rmSync(notifySocketDir, { recursive: true, force: true });
-		} catch {}
+		} catch { }
 		notifySocketDir = null;
 	}
 	notifySocketPath = null;

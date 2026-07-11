@@ -47,7 +47,8 @@ pi install git:github.com/abelfubu/pi-dev
 |------|---------|
 | `herdr_handoff` | Open a new focused Herdr tab and seed a fresh interactive `pi` session with a prompt. |
 | `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane with a restricted tool/skill set. |
-| `subagent_done` | Notify the parent pane that a subagent has finished and its result file is ready. |
+| `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
+| `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 
 ### Jira
 
@@ -81,6 +82,7 @@ Only the checks relevant to the current project are accepted by the `code_check`
 - `github` — how to use the GitHub tools.
 - `check` — how to run code checks efficiently.
 - `ast-grep` — when to use ast_grep for structural code searches.
+- `tdd` — test-driven development workflow for the coder subagent.
 
 ## Workflows
 
