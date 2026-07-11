@@ -75,11 +75,13 @@ function resolveSkillPath(skillName: string): string {
 let notifySocketPromise: Promise<string | null> | null = null;
 let notifySocketServer: net.Server | null = null;
 let notifySocketDir: string | null = null;
+let notifySocketPath: string | null = null;
 
 function ensureNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
-	if (!notifySocketPromise) {
-		notifySocketPromise = createNotifySocket(pi);
+	if (notifySocketPromise && notifySocketPath && existsSync(notifySocketPath)) {
+		return notifySocketPromise;
 	}
+	notifySocketPromise = createNotifySocket(pi);
 	return notifySocketPromise;
 }
 
@@ -116,7 +118,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 		});
 
 		notifySocketServer = server;
-		console.error(`Subagent notify socket ready: ${socketPath}`);
+		notifySocketPath = socketPath;
 
 		const cleanup = () => {
 			try {
@@ -125,6 +127,8 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 			try {
 				notifySocketDir && rmSync(notifySocketDir, { recursive: true, force: true });
 			} catch {}
+			notifySocketServer = null;
+			notifySocketPath = null;
 		};
 
 		pi?.on("session_shutdown", cleanup);
@@ -385,6 +389,23 @@ async function executeSubagent(
 }
 
 export default function (pi: ExtensionAPI) {
+	// Reset socket state on reload. If the module is cached, the old socket may
+	// have been cleaned up; always recreate a fresh one.
+	if (notifySocketServer) {
+		try {
+			notifySocketServer.close();
+		} catch {}
+		notifySocketServer = null;
+	}
+	if (notifySocketDir) {
+		try {
+			rmSync(notifySocketDir, { recursive: true, force: true });
+		} catch {}
+		notifySocketDir = null;
+	}
+	notifySocketPath = null;
+	notifySocketPromise = null;
+
 	if (process.env.HERDR_ENV !== "1") {
 		return;
 	}
