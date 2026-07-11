@@ -59,26 +59,33 @@ export function shellQuote(arg: string): string {
   return `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
+function parseHerdrPaneIds(result: unknown): HerdrPane {
+  const r = result as any;
+  return {
+    tabId: r?.result?.tab?.tab_id as string | undefined,
+    paneId: (r?.result?.root_pane?.pane_id ?? r?.result?.pane?.pane_id) as
+      | string
+      | undefined,
+  };
+}
+
 export async function createHerdrPane(
   layout: "tab" | "pane",
   label: string,
   cwd?: string,
 ): Promise<HerdrPane> {
   if (layout === "tab") {
-    const tabResult = (await runHerdrJson([
+    const tabResult = await runHerdrJson([
       "tab",
       "create",
       "--label",
       label,
       ...(cwd ? ["--cwd", cwd] : []),
-    ])) as any;
-    return {
-      tabId: tabResult?.result?.tab?.tab_id as string | undefined,
-      paneId: tabResult?.result?.root_pane?.pane_id as string | undefined,
-    };
+    ]);
+    return parseHerdrPaneIds(tabResult);
   }
 
-  const splitResult = (await runHerdrJson([
+  const splitResult = await runHerdrJson([
     "pane",
     "split",
     "--current",
@@ -86,8 +93,8 @@ export async function createHerdrPane(
     "right",
     "--no-focus",
     ...(cwd ? ["--cwd", cwd] : []),
-  ])) as any;
-  const paneId = splitResult?.result?.pane?.pane_id as string | undefined;
+  ]);
+  const { paneId } = parseHerdrPaneIds(splitResult);
   if (paneId) {
     await runHerdr(["pane", "rename", paneId, label]);
   }

@@ -14,6 +14,7 @@
 		"chains",
 		"extensions",
 		"lib",
+		"prompts",
 		"skills",
 		"themes",
 		"README.md",
@@ -35,6 +36,9 @@
 		],
 		"themes": [
 			"themes"
+		],
+		"prompts": [
+			"prompts"
 		],
 		"subagents": {
 			"agents": [
