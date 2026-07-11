@@ -380,8 +380,8 @@ async function executeSubagent(
 		return {
 			content: [
 				textContent(container.tabId
-					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}.`
-					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}.`),
+					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
+					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
 			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile, socketPath },
 		};
@@ -559,7 +559,7 @@ export default function (pi: ExtensionAPI) {
 		name: "subagent",
 		label: "Subagent",
 		description:
-			"Launch a specialized subagent in a new Herdr tab or pane. Profiles: reviewer, coder, scout, minimal. The subagent is restricted to a small tool/skill set and reports back via an artifact file.",
+			"Launch a specialized subagent in a new Herdr tab or pane. Profiles: reviewer, coder, scout, minimal. The subagent is restricted to a small tool/skill set, writes its final result to an artifact file, and calls `subagent_notify` when done to signal completion to the parent session.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -568,7 +568,7 @@ export default function (pi: ExtensionAPI) {
 		name: "Agent",
 		label: "Agent",
 		description:
-			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent.",
+			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls `subagent_notify` when done.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
