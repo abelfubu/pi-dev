@@ -116,6 +116,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 		});
 
 		notifySocketServer = server;
+		console.error(`Subagent notify socket ready: ${socketPath}`);
 
 		const cleanup = () => {
 			try {
@@ -131,7 +132,8 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 
 		return socketPath;
 	} catch (err) {
-		console.error("Failed to create subagent notify socket:", err);
+		const message = err instanceof Error ? err.message : String(err);
+		console.error(`Subagent notify socket failed: ${message}`);
 		return null;
 	}
 }
@@ -362,7 +364,7 @@ async function executeSubagent(
 					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}.`
 					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}.`),
 			],
-			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile },
+			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile, socketPath },
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -531,7 +533,7 @@ export default function (pi: ExtensionAPI) {
 						`subagent done: ${resultFile} (${summary})`,
 					);
 					return {
-						content: [textContent(`Socket failed; notified parent pane ${parentPaneId} via Herdr fallback.`)],
+						content: [textContent(`Socket failed (${fallbackError}); notified parent pane ${parentPaneId} via Herdr fallback.`)],
 						details: { socketError: fallbackError },
 					};
 				}
