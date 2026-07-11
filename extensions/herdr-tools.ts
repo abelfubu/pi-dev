@@ -329,7 +329,7 @@ async function executeSubagent(
 			throw new Error("herdr did not return a pane id");
 		}
 
-		const piArgs: string[] = ["-ne", "-e", EXTENSION_PATH, "-e", "pi-glance"];
+		const piArgs: string[] = ["-ne", "-e", EXTENSION_PATH, "-e", "npm:pi-glance"];
 		for (const skillPath of skillPaths) {
 			piArgs.push("--skill", skillPath);
 		}
