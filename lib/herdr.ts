@@ -108,3 +108,11 @@ export async function runInPane(paneId: string, command: string): Promise<void> 
 export async function notifyPane(paneId: string, message: string): Promise<void> {
   await runInPane(paneId, message);
 }
+
+export async function closeHerdrPane(paneId: string): Promise<void> {
+  await runHerdr(["pane", "close", paneId]);
+}
+
+export async function closeHerdrTab(tabId: string): Promise<void> {
+  await runHerdr(["tab", "close", tabId]);
+}

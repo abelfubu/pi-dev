@@ -33,6 +33,7 @@ If no goal is provided, start by asking the user what they want to achieve.
    - When a subagent finishes, it calls `subagent_notify` with `type: done`.
    - Read the result file and watch for the parent-session notification.
    - When a subagent calls `subagent_notify`, you will be notified via the unix socket (or Herdr fallback).
+   - Once verified, close the subagent pane/tab with `herdr_close` to keep the workspace tidy.
 
 5. **Synthesize and iterate.**
    - If a subagent reports blockers or findings, delegate follow-ups.
