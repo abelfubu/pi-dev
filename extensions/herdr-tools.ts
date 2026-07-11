@@ -104,7 +104,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 					const line = buffer.slice(0, idx).trim();
 					buffer = buffer.slice(idx + 1);
 					if (!line) continue;
-					handleNotifyMessage(line, pi);
+					handleNotifyMessage(conn, line, pi);
 				}
 			});
 			conn.on("error", () => {});
@@ -138,7 +138,7 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 	}
 }
 
-function handleNotifyMessage(raw: string, pi?: ExtensionAPI) {
+function handleNotifyMessage(conn: net.Socket, raw: string, pi?: ExtensionAPI) {
 	try {
 		const msg = JSON.parse(raw);
 		if (msg.type === "done" && pi) {
@@ -148,9 +148,21 @@ function handleNotifyMessage(raw: string, pi?: ExtensionAPI) {
 				`Subagent done: ${resultFile} (${summary})`,
 				{ deliverAs: "followUp" },
 			);
+			respond(conn, { ok: true });
+		} else {
+			respond(conn, { ok: false, error: `Unknown message type: ${msg.type}` });
 		}
 	} catch (err) {
-		console.error("Failed to handle subagent notify message:", err);
+		const message = err instanceof Error ? err.message : String(err);
+		respond(conn, { ok: false, error: message });
+	}
+}
+
+function respond(conn: net.Socket, obj: unknown) {
+	try {
+		conn.end(JSON.stringify(obj) + "\n");
+	} catch {
+		conn.end();
 	}
 }
 
