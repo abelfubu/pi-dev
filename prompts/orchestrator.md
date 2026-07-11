@@ -29,9 +29,10 @@ If no goal is provided, start by asking the user what they want to achieve.
      - `minimal`: simple reporting.
 
 4. **Collect results.**
-   - Subagents write their final results to `.pi/subagent-results/`.
-   - Read those result files to verify completion and quality.
-   - When a subagent calls `subagent_done`, you will be notified via Herdr.
+   - Subagents write their final results to a temporary file.
+   - When a subagent finishes, it calls `subagent_notify` with `type: done`.
+   - Read the result file and watch for the parent-session notification.
+   - When a subagent calls `subagent_notify`, you will be notified via the unix socket (or Herdr fallback).
 
 5. **Synthesize and iterate.**
    - If a subagent reports blockers or findings, delegate follow-ups.

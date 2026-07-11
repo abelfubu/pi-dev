@@ -1,7 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { existsSync, rmSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import * as net from "node:net";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
@@ -24,6 +26,7 @@ interface SubagentDetails {
 	pane?: string;
 	tab?: string;
 	resultFile?: string;
+	socketError?: string;
 }
 
 interface SubagentProfile {
@@ -69,6 +72,132 @@ function resolveSkillPath(skillName: string): string {
 	return join(getAgentDir(), "skills", skillName);
 }
 
+let notifySocketPromise: Promise<string | null> | null = null;
+let notifySocketServer: net.Server | null = null;
+let notifySocketDir: string | null = null;
+
+function ensureNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
+	if (!notifySocketPromise) {
+		notifySocketPromise = createNotifySocket(pi);
+	}
+	return notifySocketPromise;
+}
+
+async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
+	if (process.env.SUBAGENT_NOTIFY_SOCKET) return null;
+
+	try {
+		const socketDir = await mkdtemp(join(tmpdir(), "pi-subagent-"));
+		notifySocketDir = socketDir;
+		const socketPath = join(socketDir, "notify.sock");
+
+		try {
+			existsSync(socketPath) && rmSync(socketPath);
+		} catch {}
+
+		const server = net.createServer((conn) => {
+			let buffer = "";
+			conn.on("data", (data) => {
+				buffer += data.toString();
+				let idx: number;
+				while ((idx = buffer.indexOf("\n")) !== -1) {
+					const line = buffer.slice(0, idx).trim();
+					buffer = buffer.slice(idx + 1);
+					if (!line) continue;
+					handleNotifyMessage(line, pi);
+				}
+			});
+			conn.on("error", () => {});
+		});
+
+		await new Promise<void>((resolve, reject) => {
+			server.listen(socketPath, () => resolve());
+			server.on("error", (err) => reject(err));
+		});
+
+		notifySocketServer = server;
+
+		const cleanup = () => {
+			try {
+				server.close();
+			} catch {}
+			try {
+				notifySocketDir && rmSync(notifySocketDir, { recursive: true, force: true });
+			} catch {}
+		};
+
+		pi?.on("session_shutdown", cleanup);
+		process.on("exit", cleanup);
+
+		return socketPath;
+	} catch (err) {
+		console.error("Failed to create subagent notify socket:", err);
+		return null;
+	}
+}
+
+function handleNotifyMessage(raw: string, pi?: ExtensionAPI) {
+	try {
+		const msg = JSON.parse(raw);
+		if (msg.type === "done" && pi) {
+			const resultFile = msg.resultFile ?? "unknown";
+			const summary = msg.summary ?? "done";
+			pi.sendUserMessage(
+				`Subagent done: ${resultFile} (${summary})`,
+				{ deliverAs: "followUp" },
+			);
+		}
+	} catch (err) {
+		console.error("Failed to handle subagent notify message:", err);
+	}
+}
+
+function sendNotifyMessage(socketPath: string, message: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const conn = net.createConnection(socketPath);
+		let response = "";
+		let settled = false;
+
+		const timeout = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			conn.destroy();
+			reject(new Error("Notify socket timeout"));
+		}, 5000);
+
+		conn.on("connect", () => {
+			conn.write(message + "\n");
+		});
+
+		conn.on("data", (data) => {
+			response += data.toString();
+		});
+
+		conn.on("end", () => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			try {
+				const parsed = JSON.parse(response.trim().split("\n")[0] ?? "{}");
+				if (parsed.ok === false) {
+					reject(new Error(parsed.error ?? "Notify failed"));
+				} else {
+					resolve();
+				}
+			} catch {
+				resolve();
+			}
+		});
+
+		conn.on("error", (err) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			reject(err);
+		});
+	});
+}
+
 function buildSubagentPrompt(params: {
 	task: string;
 	profile: string;
@@ -83,10 +212,10 @@ function buildSubagentPrompt(params: {
 		`- Profile: ${params.profile}`,
 		`- Parent pane: ${params.parentPaneId}`,
 		`- Result file: ${params.resultFile}`,
-		`- Environment variables: SUBAGENT_PARENT_PANE_ID, SUBAGENT_RESULT_FILE`,
+		`- Environment variables: SUBAGENT_PARENT_PANE_ID, SUBAGENT_RESULT_FILE, SUBAGENT_NOTIFY_SOCKET`,
 		``,
-		`When you finish, write your final result to the result file, then call the subagent_done tool with:`,
-		`- parent_pane_id: ${params.parentPaneId}`,
+		`When you finish, write your final result to the result file, then call the subagent_notify tool with:`,
+		`- type: done`,
 		`- result_file: ${params.resultFile}`,
 		`- summary: a one-line summary of what you found or did`,
 	].join("\n");
@@ -116,7 +245,12 @@ const SubagentParams = Type.Object({
 	),
 });
 
-const SubagentDoneParams = Type.Object({
+const SubagentNotifyParams = Type.Object({
+	type: Type.Optional(
+		Type.String({
+			description: "Notification type, e.g. done",
+		}),
+	),
 	parent_pane_id: Type.Optional(
 		Type.String({
 			description:
@@ -177,17 +311,18 @@ async function executeSubagent(
 			}
 		}
 
-		const resultDir = resolve(cwd, ".pi", "subagent-results");
-		await mkdir(resultDir, { recursive: true });
+		const resultDir = await mkdtemp(join(tmpdir(), "pi-subagent-"));
 		const resultFile = resolve(
 			resultDir,
-			`${profile.name}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.md`,
+			`${profile.name}-result.md`,
 		);
 
 		const parentPaneId = process.env.HERDR_PANE_ID;
 		if (!parentPaneId) {
 			return errorResult("Not running inside a Herdr-managed pane.");
 		}
+
+		const socketPath = await ensureNotifySocket();
 
 		const container = await createHerdrPane(profile.layout, profile.name, cwd);
 		if (!container.paneId) {
@@ -198,7 +333,7 @@ async function executeSubagent(
 		for (const skillPath of skillPaths) {
 			piArgs.push("--skill", skillPath);
 		}
-		piArgs.push("--tools", [...profile.tools, "subagent_done"].join(","));
+		piArgs.push("--tools", [...profile.tools, "subagent_notify"].join(","));
 		const model = params.model ?? profile.model;
 		if (model) piArgs.push("--model", model);
 		for (const file of files) {
@@ -216,6 +351,7 @@ async function executeSubagent(
 		const envVars = [
 			`SUBAGENT_PARENT_PANE_ID=${shellQuote(parentPaneId)}`,
 			`SUBAGENT_RESULT_FILE=${shellQuote(resultFile)}`,
+			...(socketPath ? [`SUBAGENT_NOTIFY_SOCKET=${shellQuote(socketPath)}`] : []),
 		].join(" ");
 		const command = `cd ${shellQuote(cwd)} && ${envVars} pi ${piArgs.map(shellQuote).join(" ")}`;
 		await runInPane(container.paneId, command);
@@ -237,6 +373,11 @@ async function executeSubagent(
 export default function (pi: ExtensionAPI) {
 	if (process.env.HERDR_ENV !== "1") {
 		return;
+	}
+
+	// Start the notify socket server if we are the parent (not a subagent).
+	if (!process.env.SUBAGENT_NOTIFY_SOCKET) {
+		ensureNotifySocket(pi);
 	}
 
 	pi.registerTool({
@@ -347,28 +488,68 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "subagent_done",
-		label: "Subagent Done",
+		name: "subagent_notify",
+		label: "Subagent Notify",
 		description:
-			"Notify the parent pane that this subagent has finished and the result file is ready to read.",
-		parameters: SubagentDoneParams,
+			"Notify the parent session that this subagent has finished. Uses a unix socket if SUBAGENT_NOTIFY_SOCKET is set; otherwise falls back to Herdr pane notification.",
+		parameters: SubagentNotifyParams,
 		async execute(_id, params) {
-			const parentPaneId = params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID;
+			const socketPath = process.env.SUBAGENT_NOTIFY_SOCKET;
 			const resultFile = params.result_file ?? process.env.SUBAGENT_RESULT_FILE;
-			if (!parentPaneId || !resultFile) {
+			const summary = params.summary ?? "done";
+
+			if (!resultFile) {
 				return errorResult(
-					"Missing parent_pane_id and result_file; no SUBAGENT_PARENT_PANE_ID or SUBAGENT_RESULT_FILE env vars found either.",
+					"Missing result_file; no SUBAGENT_RESULT_FILE env var found either.",
 				);
 			}
-			const summary = params.summary ?? "done";
+
+			const message = JSON.stringify({
+				type: params.type ?? "done",
+				resultFile,
+				summary,
+			});
+
+			if (socketPath) {
+				try {
+					await sendNotifyMessage(socketPath, message);
+					return {
+						content: [textContent("Notified parent session via socket.")],
+						details: {},
+					};
+				} catch (err) {
+					const fallbackError = err instanceof Error ? err.message : String(err);
+					// Fall back to Herdr
+					const parentPaneId = params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID;
+					if (!parentPaneId) {
+						return errorResult(
+							`Socket notify failed and no Herdr parent pane id: ${fallbackError}`,
+						);
+					}
+					await notifyPane(
+						parentPaneId,
+						`subagent done: ${resultFile} (${summary})`,
+					);
+					return {
+						content: [textContent(`Socket failed; notified parent pane ${parentPaneId} via Herdr fallback.`)],
+						details: { socketError: fallbackError },
+					};
+				}
+			}
+
+			// No socket: Herdr fallback
+			const parentPaneId = params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID;
+			if (!parentPaneId) {
+				return errorResult(
+					"Missing parent_pane_id; no SUBAGENT_PARENT_PANE_ID or SUBAGENT_NOTIFY_SOCKET env vars found.",
+				);
+			}
 			await notifyPane(
 				parentPaneId,
 				`subagent done: ${resultFile} (${summary})`,
 			);
 			return {
-				content: [
-					textContent(`Notified parent pane ${parentPaneId}.`),
-				],
+				content: [textContent(`Notified parent pane ${parentPaneId} via Herdr.`)],
 				details: {},
 			};
 		},
