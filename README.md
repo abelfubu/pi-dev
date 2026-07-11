@@ -41,6 +41,14 @@ pi install git:github.com/abelfubu/pi-dev
 
 ## Tools
 
+### Herdr
+
+| Tool | Purpose |
+|------|---------|
+| `herdr_handoff` | Open a new focused Herdr tab and seed a fresh interactive `pi` session with a prompt. |
+| `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane with a restricted tool/skill set. |
+| `subagent_done` | Notify the parent pane that a subagent has finished and its result file is ready. |
+
 ### Jira
 
 | Tool | Purpose |

@@ -6,6 +6,11 @@ export interface HerdrResult {
   exitCode: number;
 }
 
+export interface HerdrPane {
+  paneId?: string;
+  tabId?: string;
+}
+
 export async function runHerdr(args: string[], cwd?: string): Promise<HerdrResult> {
   return new Promise((resolve, reject) => {
     const child = execFile(
@@ -52,4 +57,47 @@ export function shellQuote(arg: string): string {
     return arg;
   }
   return `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+export async function createHerdrPane(
+  layout: "tab" | "pane",
+  label: string,
+  cwd?: string,
+): Promise<HerdrPane> {
+  if (layout === "tab") {
+    const tabResult = (await runHerdrJson([
+      "tab",
+      "create",
+      "--label",
+      label,
+      ...(cwd ? ["--cwd", cwd] : []),
+    ])) as any;
+    return {
+      tabId: tabResult?.result?.tab?.tab_id as string | undefined,
+      paneId: tabResult?.result?.root_pane?.pane_id as string | undefined,
+    };
+  }
+
+  const splitResult = (await runHerdrJson([
+    "pane",
+    "split",
+    "--current",
+    "--direction",
+    "right",
+    "--no-focus",
+    ...(cwd ? ["--cwd", cwd] : []),
+  ])) as any;
+  const paneId = splitResult?.result?.pane?.pane_id as string | undefined;
+  if (paneId) {
+    await runHerdr(["pane", "rename", paneId, label]);
+  }
+  return { paneId };
+}
+
+export async function runInPane(paneId: string, command: string): Promise<void> {
+  await runHerdr(["pane", "run", paneId, command]);
+}
+
+export async function notifyPane(paneId: string, message: string): Promise<void> {
+  await runInPane(paneId, message);
 }

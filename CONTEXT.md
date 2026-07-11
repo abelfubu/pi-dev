@@ -105,8 +105,12 @@ _Avoid_: release, deploy.
 
 ## Delegation
 
+**Subagent**:
+A scoped `pi` session with a restricted tool/skill set, launched to handle a slice of work independently. The canonical unit of delegation in this extension.
+_Avoid_: handoff, spawn, worker.
+
 **Handoff**:
-The action of delegating a scoped slice of work to a fresh interactive `pi` session in a new Herdr tab by providing a title and a markdown prompt. Performed by the `herdr_handoff` tool.
+The action of delegating a slice to a subagent by opening a new Herdr tab/pane and seeding it with a prompt. Performed by the `herdr_handoff` tool.
 _Avoid_: subagent, spawn, pi-subagents.
 
 **Slice**:
@@ -116,6 +120,10 @@ _Avoid_: task, feature, ticket.
 **Herdr Tab**:
 A new subcontext inside the current Herdr workspace, used as the target for a handoff.
 _Avoid_: pane, window, workspace.
+
+**Subagent Profile**:
+A named configuration that defines which skills, tools, and model a subagent loads. Used to keep the subagent's context small and specialized.
+_Avoid_: agent template, role, specialization.
 
 **Prompt**:
 The markdown instructions passed to a new interactive `pi` session as part of a handoff.
