@@ -7,14 +7,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
-import {
-	closeHerdrPane,
-	closeHerdrTab,
-	createHerdrPane,
-	notifyPane,
-	runInPane,
-	shellQuote,
-} from "../lib/herdr.js";
+import { loadConfig, type PiDevConfig } from "../lib/config.js";
+import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
 
 const EXTENSION_PATH = fileURLToPath(import.meta.url);
 
@@ -33,35 +27,71 @@ interface SubagentDetails {
 
 interface SubagentProfile {
 	name: string;
-	tools: string[];
+	layout?: "tab" | "pane";
+	tools?: string[];
 	skills?: string[];
 	model?: string;
-	layout: "tab" | "pane";
 }
 
-const SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
+const DEFAULT_SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 	reviewer: {
 		name: "reviewer",
-		tools: ["read", "ffgrep", "fffind", "ast_grep_search", "jira"],
 		layout: "tab",
 	},
 	coder: {
 		name: "coder",
-		tools: ["read", "edit", "write", "bash", "fffind", "ffgrep", "ast_grep_search", "ast_grep_replace", "code_check_discover", "code_check", "code_check_parallel"],
-		skills: ["tdd", "pi-dev/skills/check"],
 		layout: "tab",
 	},
 	scout: {
 		name: "scout",
-		tools: ["read", "edit", "write", "bash", "fffind", "ffgrep", "ast_grep_search"],
 		layout: "pane",
 	},
 	minimal: {
 		name: "minimal",
-		tools: ["read", "write"],
 		layout: "pane",
 	},
 };
+
+async function loadSubagentProfiles(cwd: string): Promise<Record<string, SubagentProfile>> {
+	const config = await loadConfig(cwd).catch(() => ({} as PiDevConfig));
+	const defaults: SubagentProfile = {
+		name: "",
+		layout: config.subagentDefaults?.layout,
+		model: config.subagentDefaults?.model,
+		tools: config.subagentDefaults?.tools,
+		skills: config.subagentDefaults?.skills,
+	};
+
+	const profiles: Record<string, SubagentProfile> = { ...DEFAULT_SUBAGENT_PROFILES };
+	for (const [key, profile] of Object.entries(profiles)) {
+		profiles[key] = mergeProfiles(defaults, profile);
+	}
+
+	if (config.subagents) {
+		for (const [key, profileConfig] of Object.entries(config.subagents)) {
+			const base = profiles[key] ?? mergeProfiles(defaults, { name: profileConfig.name ?? key });
+			profiles[key] = mergeProfiles(base, {
+				name: profileConfig.name,
+				layout: profileConfig.layout,
+				model: profileConfig.model,
+				tools: profileConfig.tools,
+				skills: profileConfig.skills,
+			});
+		}
+	}
+
+	return profiles;
+}
+
+function mergeProfiles(base: SubagentProfile, override: Partial<SubagentProfile>): SubagentProfile {
+	return {
+		name: override.name ?? base.name,
+		layout: override.layout ?? base.layout,
+		model: override.model ?? base.model,
+		tools: override.tools ?? base.tools,
+		skills: override.skills ?? base.skills,
+	};
+}
 
 function errorResult(message: string, details: SubagentDetails = {}) {
 	return {
@@ -244,7 +274,7 @@ function buildSubagentPrompt(params: {
 
 const SubagentParams = Type.Object({
 	profile: Type.String({
-		description: "Subagent profile name: reviewer, coder, scout, or minimal",
+		description: "Subagent profile name. Profiles are configured in ~/.pi/agent/pi-dev.json under the subagents key; built-in profiles are reviewer, coder, scout, and minimal.",
 	}),
 	task: Type.String({
 		description: "Markdown task for the subagent",
@@ -306,10 +336,11 @@ async function executeSubagent(
 ) {
 	try {
 		const cwd = resolve(params.cwd ?? ctx?.cwd ?? process.cwd());
-		const profile = SUBAGENT_PROFILES[params.profile];
+		const profiles = await loadSubagentProfiles(cwd);
+		const profile = profiles[params.profile];
 		if (!profile) {
 			return errorResult(
-				`Unknown profile: ${params.profile}. Available: ${Object.keys(SUBAGENT_PROFILES).join(", ")}.`,
+				`Unknown profile: ${params.profile}. Available: ${Object.keys(profiles).join(", ")}.`,
 			);
 		}
 
@@ -318,6 +349,11 @@ async function executeSubagent(
 		if (missing.length > 0) {
 			return errorResult(`Missing files: ${missing.join(", ")}`, { missing });
 		}
+
+		if (!profile.layout) {
+			return errorResult(`Profile ${params.profile} is missing layout.`);
+		}
+		const layout = profile.layout;
 
 		const skillPaths: string[] = [];
 		if (profile.skills) {
@@ -345,7 +381,7 @@ async function executeSubagent(
 
 		const socketPath = await ensureNotifySocket();
 
-		const container = await createHerdrPane(profile.layout, profile.name, cwd);
+		const container = await createHerdrPane(layout, profile.name, cwd);
 		if (!container.paneId) {
 			throw new Error("herdr did not return a pane id");
 		}
@@ -354,7 +390,9 @@ async function executeSubagent(
 		for (const skillPath of skillPaths) {
 			piArgs.push("--skill", skillPath);
 		}
-		piArgs.push("--tools", [...profile.tools, "subagent_notify", "todo"].join(","));
+		if (profile.tools) {
+			piArgs.push("--tools", [...profile.tools, "subagent_notify", "todo"].join(","));
+		}
 		const model = params.model ?? profile.model;
 		if (model) piArgs.push("--model", model);
 		for (const file of files) {
@@ -559,7 +597,7 @@ export default function (pi: ExtensionAPI) {
 		name: "subagent",
 		label: "Subagent",
 		description:
-			"Launch a specialized subagent in a new Herdr tab or pane. Profiles: reviewer, coder, scout, minimal. The subagent is restricted to a small tool/skill set, writes its final result to an artifact file, and calls `subagent_notify` when done to signal completion to the parent session.",
+			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -568,7 +606,7 @@ export default function (pi: ExtensionAPI) {
 		name: "Agent",
 		label: "Agent",
 		description:
-			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls `subagent_notify` when done.",
+			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});

@@ -13,10 +13,11 @@ The `subagent` tool is registered by this extension and routes every subagent in
 
 1. This extension registers the canonical `subagent` tool.
 2. Every `subagent` call launches an interactive `pi` session in a new Herdr tab or pane.
-3. A `profile` parameter selects a named configuration that defines allowed tools, loaded skills, model, and layout (tab vs pane).
-4. The parent passes its Herdr pane ID, a result file path, and a notify socket path to the subagent. The result file is created in a temporary directory managed by `os.tmpdir()`/`fs.mkdtemp()`.
-5. The subagent writes its final result to the result file and uses the `subagent_notify` tool to notify the parent session. Notification prefers a Unix socket via `SUBAGENT_NOTIFY_SOCKET`, falling back to Herdr pane notification if the socket is unavailable.
-6. No extra global token caps are enforced beyond the tool/skill restrictions declared in each profile.
+3. A `profile` parameter selects a named configuration that defines allowed tools, loaded skills, model, and layout (tab vs pane). Profiles can be defined or overridden in `~/.pi/agent/pi-dev.json` under the `subagents` key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used as defaults.
+4. A minimal profile only needs `name`, `layout`, and an optional `model`; `tools` and `skills` are optional and will restrict the subagent when provided.
+5. The parent passes its Herdr pane ID, a result file path, and a notify socket path to the subagent. The result file is created in a temporary directory managed by `os.tmpdir()`/`fs.mkdtemp()`.
+6. The subagent writes its final result to the result file and uses the `subagent_notify` tool to notify the parent session. Notification prefers a Unix socket via `SUBAGENT_NOTIFY_SOCKET`, falling back to Herdr pane notification if the socket is unavailable.
+7. No extra global token caps are enforced beyond the tool/skill restrictions declared in each profile.
 
 ## Consequences
 

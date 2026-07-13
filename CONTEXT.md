@@ -122,7 +122,7 @@ A new subcontext inside the current Herdr workspace, used as the target for a ha
 _Avoid_: pane, window, workspace.
 
 **Subagent Profile**:
-A named configuration that defines which skills, tools, and model a subagent loads. Used to keep the subagent's context small and specialized.
+A named configuration that defines which skills, tools, model, and Herdr layout a subagent loads. Profiles can be defined or overridden in `~/.pi/agent/pi-dev.json` under the `subagents` key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used as defaults. Used to keep the subagent's context small and specialized.
 _Avoid_: agent template, role, specialization.
 
 **Prompt**:

@@ -3,6 +3,23 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+export type SubagentLayout = "tab" | "pane";
+
+export interface SubagentDefaultsConfig {
+  model?: string;
+  layout?: SubagentLayout;
+  tools?: string[];
+  skills?: string[];
+}
+
+export interface SubagentProfileConfig {
+  name?: string;
+  layout?: SubagentLayout;
+  model?: string;
+  tools?: string[];
+  skills?: string[];
+}
+
 export interface CodeCheckConfig {
   eslint?: string;
   tsc?: string;
@@ -14,7 +31,8 @@ export interface CodeCheckConfig {
 
 export interface PiDevConfig {
   codeChecks?: CodeCheckConfig;
-  // Reserved for future per-machine / per-project configuration.
+  subagentDefaults?: SubagentDefaultsConfig;
+  subagents?: Record<string, SubagentProfileConfig>;
   [key: string]: unknown;
 }
 
