@@ -48,7 +48,7 @@ const SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 	coder: {
 		name: "coder",
 		tools: ["read", "edit", "write", "bash", "fffind", "ffgrep", "ast_grep_search", "ast_grep_replace", "code_check_discover", "code_check", "code_check_parallel"],
-		skills: ["tdd", "check"],
+		skills: ["tdd", "pi-dev/skills/check"],
 		layout: "tab",
 	},
 	scout: {
