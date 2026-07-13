@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { existsSync, rmSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import * as net from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -379,6 +379,18 @@ async function executeSubagent(
 			return errorResult("Not running inside a Herdr-managed pane.");
 		}
 
+		const promptFile = resolve(resultDir, "prompt.md");
+		await writeFile(
+			promptFile,
+			buildSubagentPrompt({
+				task: params.task,
+				profile: profile.name,
+				parentPaneId,
+				resultFile,
+			}),
+			"utf8",
+		);
+
 		const socketPath = await ensureNotifySocket();
 
 		const container = await createHerdrPane(layout, profile.name, cwd);
@@ -398,14 +410,7 @@ async function executeSubagent(
 		for (const file of files) {
 			piArgs.push(`@${file}`);
 		}
-		piArgs.push(
-			buildSubagentPrompt({
-				task: params.task,
-				profile: profile.name,
-				parentPaneId,
-				resultFile,
-			}),
-		);
+		piArgs.push(`@${promptFile}`);
 
 		const envVars = [
 			`SUBAGENT_PARENT_PANE_ID=${shellQuote(parentPaneId)}`,
@@ -421,7 +426,7 @@ async function executeSubagent(
 					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
 					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
-			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile, socketPath },
+			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath },
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -512,6 +517,10 @@ export default function (pi: ExtensionAPI) {
 					);
 				}
 
+				const promptDir = await mkdtemp(join(tmpdir(), "pi-handoff-"));
+				const promptFile = resolve(promptDir, "prompt.md");
+				await writeFile(promptFile, params.prompt, "utf8");
+
 				const piArgs: string[] = [];
 				if (params.model) {
 					piArgs.push("--model", shellQuote(params.model));
@@ -519,7 +528,7 @@ export default function (pi: ExtensionAPI) {
 				for (const file of files) {
 					piArgs.push(shellQuote(`@${file}`));
 				}
-				piArgs.push(shellQuote(params.prompt));
+				piArgs.push(shellQuote(`@${promptFile}`));
 
 				const command = `cd ${shellQuote(cwd)} && pi ${piArgs.join(" ")}`;
 				await runInPane(container.paneId, command);
