@@ -10,8 +10,6 @@
 	],
 	"license": "MIT",
 	"files": [
-		"agents",
-		"chains",
 		"extensions",
 		"lib",
 		"prompts",
@@ -39,28 +37,14 @@
 		],
 		"prompts": [
 			"prompts"
-		],
-		"subagents": {
-			"agents": [
-				"agents"
-			],
-			"chains": [
-				"chains"
-			]
-		}
+		]
 	},
 	"dependencies": {
 		"extended-markdown-adf-parser": "^2.4.0"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
-		"pi-subagents": "*",
 		"typebox": "*"
-	},
-	"peerDependenciesMeta": {
-		"pi-subagents": {
-			"optional": true
-		}
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.2",

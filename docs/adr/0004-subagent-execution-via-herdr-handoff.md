@@ -5,7 +5,6 @@ The `subagent` tool is registered by this extension and routes every subagent in
 ## Why
 
 - `pi` core has no built-in subagent tool; skills like `code-review` assume one exists.
-- The `pi-subagents` package is declared as an optional peer dependency but is not currently installed, and its headless, synchronous model does not match the existing `herdr_handoff` workflow.
 - The user wants subagent work to be visible and inspectable inside Herdr, not hidden in background processes.
 - Restricting each subagent to a small tool/skill set saves tokens and keeps the agent focused.
 

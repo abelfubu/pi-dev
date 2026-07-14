@@ -111,7 +111,7 @@ _Avoid_: handoff, spawn, worker.
 
 **Handoff**:
 The action of delegating a slice to a subagent by opening a new Herdr tab/pane and seeding it with a prompt. Performed by the `herdr_handoff` tool.
-_Avoid_: subagent, spawn, pi-subagents.
+_Avoid_: subagent, spawn.
 
 **Slice**:
 A self-contained unit of work handed off to a new Herdr tab.

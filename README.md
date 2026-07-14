@@ -130,13 +130,6 @@ Only the checks relevant to the current project are accepted by the `code_check`
 - `ast-grep` — when to use ast_grep for structural code searches.
 - `tdd` — test-driven development workflow for the coder subagent.
 
-## Workflows
-
-The package ships two slice-ship chains that can be invoked directly by name:
-
-- `implement-slice` — read a Jira slice issue, scout the codebase, implement the change, review it, and apply accepted fixes. Stops before shipping so a human can approve.
-- `ship-slice` — open a GitHub PR for an approved slice and update the linked Jira issue.
-
 ## Theme
 
 Includes the `material-darker` TUI theme. After installing the package, select it via `/settings` or set `"theme": "material-darker"` in `settings.json`.
