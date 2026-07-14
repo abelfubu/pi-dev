@@ -106,7 +106,7 @@ _Avoid_: release, deploy.
 ## Delegation
 
 **Subagent**:
-A scoped `pi` session with a restricted tool/skill set, launched to handle a slice of work independently. The canonical unit of delegation in this extension.
+A scoped `pi` session launched to handle a slice of work independently. The canonical unit of delegation in this extension.
 _Avoid_: handoff, spawn, worker.
 
 **Handoff**:

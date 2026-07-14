@@ -8,16 +8,12 @@ export type SubagentLayout = "tab" | "pane";
 export interface SubagentDefaultsConfig {
   model?: string;
   layout?: SubagentLayout;
-  tools?: string[];
-  skills?: string[];
 }
 
 export interface SubagentProfileConfig {
   name?: string;
   layout?: SubagentLayout;
   model?: string;
-  tools?: string[];
-  skills?: string[];
 }
 
 export interface CodeCheckConfig {

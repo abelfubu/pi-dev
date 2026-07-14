@@ -1,16 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { existsSync, rmSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import * as net from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { loadConfig, type PiDevConfig } from "../lib/config.js";
 import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
-
-const EXTENSION_PATH = fileURLToPath(import.meta.url);
 
 function textContent(text: string): { type: "text"; text: string } {
 	return { type: "text", text };
@@ -28,8 +24,6 @@ interface SubagentDetails {
 interface SubagentProfile {
 	name: string;
 	layout?: "tab" | "pane";
-	tools?: string[];
-	skills?: string[];
 	model?: string;
 }
 
@@ -58,8 +52,6 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 		name: "",
 		layout: config.subagentDefaults?.layout,
 		model: config.subagentDefaults?.model,
-		tools: config.subagentDefaults?.tools,
-		skills: config.subagentDefaults?.skills,
 	};
 
 	const profiles: Record<string, SubagentProfile> = { ...DEFAULT_SUBAGENT_PROFILES };
@@ -74,8 +66,6 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 				name: profileConfig.name,
 				layout: profileConfig.layout,
 				model: profileConfig.model,
-				tools: profileConfig.tools,
-				skills: profileConfig.skills,
 			});
 		}
 	}
@@ -88,8 +78,6 @@ function mergeProfiles(base: SubagentProfile, override: Partial<SubagentProfile>
 		name: override.name ?? base.name,
 		layout: override.layout ?? base.layout,
 		model: override.model ?? base.model,
-		tools: override.tools ?? base.tools,
-		skills: override.skills ?? base.skills,
 	};
 }
 
@@ -99,10 +87,6 @@ function errorResult(message: string, details: SubagentDetails = {}) {
 		isError: true as const,
 		details,
 	};
-}
-
-function resolveSkillPath(skillName: string): string {
-	return join(getAgentDir(), "skills", skillName);
 }
 
 let notifySocketPromise: Promise<string | null> | null = null;
@@ -355,19 +339,6 @@ async function executeSubagent(
 		}
 		const layout = profile.layout;
 
-		const skillPaths: string[] = [];
-		if (profile.skills) {
-			for (const skillName of profile.skills) {
-				const skillPath = resolveSkillPath(skillName);
-				if (!existsSync(join(skillPath, "SKILL.md"))) {
-					return errorResult(`Skill not found: ${skillName}`, {
-						profile: profile.name,
-					});
-				}
-				skillPaths.push(skillPath);
-			}
-		}
-
 		const resultDir = await mkdtemp(join(tmpdir(), "pi-subagent-"));
 		const resultFile = resolve(
 			resultDir,
@@ -398,13 +369,7 @@ async function executeSubagent(
 			throw new Error("herdr did not return a pane id");
 		}
 
-		const piArgs: string[] = ["-ne", "-e", EXTENSION_PATH, "-e", "npm:pi-glance"];
-		for (const skillPath of skillPaths) {
-			piArgs.push("--skill", skillPath);
-		}
-		if (profile.tools) {
-			piArgs.push("--tools", [...profile.tools, "subagent_notify", "todo"].join(","));
-		}
+		const piArgs: string[] = [];
 		const model = params.model ?? profile.model;
 		if (model) piArgs.push("--model", model);
 		for (const file of files) {

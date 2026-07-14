@@ -45,7 +45,7 @@ The `codeChecks` key overrides auto-discovered commands:
 
 ### subagentDefaults
 
-Use `subagentDefaults` to set a base model, layout, tools, or skills for every subagent profile. Per-profile values in `subagents` override these defaults.
+Use `subagentDefaults` to set a base model or layout for every subagent profile. Per-profile values in `subagents` override these defaults.
 
 ```json
 {
@@ -57,7 +57,7 @@ Use `subagentDefaults` to set a base model, layout, tools, or skills for every s
 
 ### subagents
 
-The `subagents` key defines or overrides subagent profiles used by the `subagent` tool. A profile only needs a `name`, `layout` (`tab` or `pane`), and an optional `model`. You can also add `tools` and `skills` when you want a restricted set. Config fields override the matching built-in profile field-by-field, so you can change just the model of a default profile:
+The `subagents` key defines or overrides subagent profiles used by the `subagent` tool. A profile only needs a `name`, `layout` (`tab` or `pane`), and an optional `model`. Config fields override the matching built-in profile field-by-field, so you can change just the model of a default profile:
 
 ```json
 {
@@ -76,8 +76,7 @@ Or define a fully custom profile:
   "subagents": {
     "quick": {
       "name": "quick",
-      "layout": "pane",
-      "tools": ["read", "ffgrep", "fffind"]
+      "layout": "pane"
     }
   }
 }
@@ -92,7 +91,7 @@ Built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used when a prof
 | Tool | Purpose |
 |------|---------|
 | `herdr_handoff` | Open a new focused Herdr tab and seed a fresh interactive `pi` session with a prompt. |
-| `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane with a restricted tool/skill set. |
+| `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane. |
 | `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 
