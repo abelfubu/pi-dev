@@ -3,7 +3,7 @@ import { existsSync, rmSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import * as net from "node:net";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { Type } from "typebox";
 import { loadConfig, type PiDevConfig } from "../lib/config.js";
 import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
@@ -263,6 +263,11 @@ const SubagentParams = Type.Object({
 	task: Type.String({
 		description: "Markdown task for the subagent",
 	}),
+	title: Type.Optional(
+		Type.String({
+			description: "Optional descriptive title for the Herdr pane or tab. If omitted, a title is derived from the task, profile, and working directory.",
+		}),
+	),
 	files: Type.Optional(
 		Type.Array(Type.String(), {
 			description: "Files to attach with @file references (resolved relative to cwd)",
@@ -305,11 +310,70 @@ const SubagentNotifyParams = Type.Object({
 	),
 });
 
+function sanitizeLabel(label: string, maxLength = 60): string {
+	return label
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, maxLength)
+		.trimEnd();
+}
+
+function extractJiraIssueKey(text: string): string | undefined {
+	const match = text.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
+	return match?.[1];
+}
+
+function taskHeadline(task: string, maxLength = 40): string | undefined {
+	const line = task
+		.split("\n")
+		.map((line) => line.replace(/^#{1,6}\s*/, "").trim())
+		.find((line) => line.length > 0);
+	if (!line) return undefined;
+	const cleaned = line.replace(/`/g, "").replace(/\s+/g, " ").trim();
+	if (cleaned.length === 0) return undefined;
+	if (cleaned.length <= maxLength) return cleaned;
+	return cleaned.slice(0, maxLength).trimEnd() + "…";
+}
+
+function folderName(cwd: string): string | undefined {
+	const base = basename(cwd);
+	if (base === basename(process.cwd())) return undefined;
+	return base;
+}
+
+function buildSubagentLabel(params: {
+	title?: string;
+	profile: string;
+	task: string;
+	cwd: string;
+}): string {
+	if (params.title) {
+		return sanitizeLabel(params.title);
+	}
+
+	const issueKey = extractJiraIssueKey(params.task);
+	let headline = taskHeadline(params.task);
+	const folder = folderName(params.cwd);
+
+	if (issueKey && headline?.toLowerCase().startsWith(`${issueKey.toLowerCase()}:`)) {
+		headline = headline.slice(issueKey.length + 1).trim();
+	}
+
+	let label = "";
+	if (issueKey) label += `${issueKey}: `;
+	if (headline) label += headline;
+	label += ` (${params.profile})`;
+	if (folder) label += ` /${folder}`;
+
+	return sanitizeLabel(label);
+}
+
 async function executeSubagent(
 	_id: string,
 	params: {
 		profile: string;
 		task: string;
+		title?: string;
 		files?: string[];
 		cwd?: string;
 		model?: string;
@@ -365,7 +429,14 @@ async function executeSubagent(
 
 		const socketPath = await ensureNotifySocket();
 
-		const container = await createHerdrPane(layout, profile.name, cwd, {
+		const label = buildSubagentLabel({
+			title: params.title,
+			profile: profile.name,
+			task: params.task,
+			cwd,
+		});
+
+		const container = await createHerdrPane(layout, label, cwd, {
 			paneId: parentPaneId,
 			workspaceId: parentWorkspaceId,
 		});
@@ -392,8 +463,8 @@ async function executeSubagent(
 		return {
 			content: [
 				textContent(container.tabId
-					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
-					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
+					? `Subagent **${profile.name}** launched in tab **${container.tabId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
+					: `Subagent **${profile.name}** launched in pane **${container.paneId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
 			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath },
 		};
@@ -580,7 +651,7 @@ export default function (pi: ExtensionAPI) {
 		name: "subagent",
 		label: "Subagent",
 		description:
-			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
+			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. Optionally pass a `title` to set the Herdr pane/tab label; otherwise the label is derived from the task, profile, and cwd. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -589,7 +660,7 @@ export default function (pi: ExtensionAPI) {
 		name: "Agent",
 		label: "Agent",
 		description:
-			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done.",
+			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done. Accepts the same parameters, including an optional `title` for the Herdr pane/tab label.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -662,3 +733,5 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 }
+
+export { buildSubagentLabel, extractJiraIssueKey, taskHeadline, folderName, sanitizeLabel };

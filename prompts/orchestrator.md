@@ -25,6 +25,7 @@ If no goal is provided, start by asking the user what they want to achieve.
    - **Do not wait for subagents to finish.** Once launched, move on. Subagents will call `subagent_notify` with `type: done` when finished, and you will be notified automatically.
    - For large end-to-end tasks that span multiple repos or areas, split the work into multiple agents—one per repo or area.
    - Start each agent in the directory (`cwd`) it must work on; scoped code checks and validation are easier that way.
+   - Give each subagent a descriptive `title` that reflects the Jira issue and folder, e.g. `ITA-123: fix login /src/auth`. If you omit `title`, a label is derived from the task automatically.
    - Available profiles:
      - `scout`: explore, summarize, map the codebase.
      - `coder`: implement, edit, and validate.
