@@ -11,6 +11,11 @@ export interface HerdrPane {
   tabId?: string;
 }
 
+export interface HerdrParentContext {
+  paneId: string;
+  workspaceId: string;
+}
+
 export async function runHerdr(args: string[], cwd?: string): Promise<HerdrResult> {
   return new Promise((resolve, reject) => {
     const child = execFile(
@@ -73,11 +78,13 @@ export async function createHerdrPane(
   layout: "tab" | "pane",
   label: string,
   cwd?: string,
+  parent?: HerdrParentContext,
 ): Promise<HerdrPane> {
   if (layout === "tab") {
     const tabResult = await runHerdrJson([
       "tab",
       "create",
+      ...(parent ? ["--workspace", parent.workspaceId] : []),
       "--label",
       label,
       ...(cwd ? ["--cwd", cwd] : []),
@@ -88,7 +95,7 @@ export async function createHerdrPane(
   const splitResult = await runHerdrJson([
     "pane",
     "split",
-    "--current",
+    ...(parent ? [parent.paneId] : ["--current"]),
     "--direction",
     "right",
     "--no-focus",

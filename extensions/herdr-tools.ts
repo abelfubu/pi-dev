@@ -346,8 +346,9 @@ async function executeSubagent(
 		);
 
 		const parentPaneId = process.env.HERDR_PANE_ID;
-		if (!parentPaneId) {
-			return errorResult("Not running inside a Herdr-managed pane.");
+		const parentWorkspaceId = process.env.HERDR_WORKSPACE_ID;
+		if (!parentPaneId || !parentWorkspaceId) {
+			return errorResult("Missing parent Herdr pane or workspace context.");
 		}
 
 		const promptFile = resolve(resultDir, "prompt.md");
@@ -364,7 +365,10 @@ async function executeSubagent(
 
 		const socketPath = await ensureNotifySocket();
 
-		const container = await createHerdrPane(layout, profile.name, cwd);
+		const container = await createHerdrPane(layout, profile.name, cwd, {
+			paneId: parentPaneId,
+			workspaceId: parentWorkspaceId,
+		});
 		if (!container.paneId) {
 			throw new Error("herdr did not return a pane id");
 		}
@@ -391,7 +395,7 @@ async function executeSubagent(
 					? `Subagent **${profile.name}** launched in tab **${container.tabId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
 					: `Subagent **${profile.name}** launched in pane **${container.paneId}**. Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
-			details: { profile: profile.name, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath },
+			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath },
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -475,7 +479,12 @@ export default function (pi: ExtensionAPI) {
 					};
 				}
 
-				const container = await createHerdrPane("tab", params.title, cwd);
+				const parentPaneId = process.env.HERDR_PANE_ID;
+				const parentWorkspaceId = process.env.HERDR_WORKSPACE_ID;
+				const parent = parentPaneId && parentWorkspaceId
+					? { paneId: parentPaneId, workspaceId: parentWorkspaceId }
+					: undefined;
+				const container = await createHerdrPane("tab", params.title, cwd, parent);
 				if (!container.paneId || !container.tabId) {
 					throw new Error(
 						`herdr tab create did not return tab/pane ids: ${JSON.stringify(container)}`,
