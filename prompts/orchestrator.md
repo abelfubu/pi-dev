@@ -25,7 +25,9 @@ Leading words you think with: a **slice** is the unit you delegate; a **breaking
    - For each slice, pick a profile and write its task with explicit non-goals, **focused checks**, and any **breaking changes**.
    - *Done when every slice has profile + task + non-goals + focused checks + break note.*
 
-3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on, titled ≤32 chars (prefer `ITA-123 action /folder`; a compact label is derived if omitted). Only one writer per checkout at a time — sequence writers or give them separate worktrees. **Launch and move on:** subagents call `subagent_notify` with `type: done` when finished, and you are notified automatically. No waiting, no polling.
+3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on, titled ≤32 chars (prefer `ITA-123 action /folder`; a compact label is derived if omitted). **Launch and move on:** subagents call `subagent_notify` with `type: done` when finished, and you are notified automatically. No waiting, no polling.
+   - Only one writer per checkout at a time. Reuse the normal checkout for sequential work on one branch. When another branch must progress concurrently or the normal checkout has WIP, create a dedicated sibling Git worktree from the correct remote base and give every writer for that branch the worktree `cwd`. Record its path and branch in the handoff.
+   - Read-only scouts, reviewers, and check agents may share a checkout; writers may not. Separate worktrees isolate files, not Git refs: do not switch/delete a branch used by another worktree.
    - Every subagent prompt carries the slice boundary, non-goals, focused checks, known breaking changes (with migration path and affected consumers), and the checkpoint protocol below.
 
 4. **Collect and verify.** On `subagent_notify`, read the result file, verify the slice, then close the pane/tab with `herdr_close` to keep the workspace tidy.
@@ -34,8 +36,10 @@ Leading words you think with: a **slice** is the unit you delegate; a **breaking
 5. **Synthesize and iterate.** Delegate follow-ups for blockers and findings. After implementation slices, run `code_check` / `code_check_parallel`. A coder runs **focused checks**; a **broad suite** runs in a later `minimal`/check slice. Split review fixes by finding cluster — a single "fix all findings" across unrelated flows, compatibility, and tests is not a slice. Your role: read, verify, synthesize. Implementation lives in subagents, not in your hands.
    - *Done when focused checks pass and open findings are either fixed or logged.*
 
-6. **Ship.** Summarize completed slices, open findings, and recommended next steps. When opening a PR, add the `italy` label at creation time (or immediately after) and verify it is present.
-   - *Done when the report is written and the PR, if any, is labelled `italy`.*
+6. **Ship and clean up.** Summarize completed slices, open findings, and recommended next steps. When opening a PR, add the `italy` label at creation time (or immediately after) and verify it is present.
+   - Keep a feature worktree while its PR is open. Remove it only after the branch is merged or the user explicitly abandons it. Before removal: close agents using that `cwd`, require a clean status, and confirm commits are pushed or intentionally disposable. Never use forced worktree removal to hide WIP.
+   - Cleanup order: `git worktree remove <path>` → `git worktree prune` → delete the local feature branch with `git branch -d <branch>` only when merged. Never remove the primary worktree.
+   - *Done when the report is written, the PR (if any) is labelled `italy`, and completed/abandoned auxiliary worktrees are safely removed or explicitly retained because their PR is still open.*
 
 ## Checkpoint protocol (per slice)
 
