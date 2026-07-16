@@ -69,7 +69,8 @@ If no goal is provided, start by asking the user what they want to achieve.
    - After implementation slices, run `code_check` or `code_check_parallel`.
    - Do not edit source code yourself.
 
-6. **Hand off.**
+6. **Ship and hand off.**
+   - When creating a pull request for this work, always add the `italy` label at creation time. If the PR tool cannot add it during creation, add it immediately afterward and verify it is present.
    - Summarize completed slices, open findings, and recommended next steps.
 
 ## Output format
