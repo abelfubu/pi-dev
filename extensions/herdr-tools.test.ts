@@ -12,9 +12,9 @@ describe("sanitizeLabel", () => {
 		expect(sanitizeLabel("  hello   world  ")).toBe("hello world");
 	});
 
-	it("truncates to the max length", () => {
+	it("truncates long labels to 32 characters with an ellipsis", () => {
 		const long = "a".repeat(80);
-		expect(sanitizeLabel(long)).toBe("a".repeat(60));
+		expect(sanitizeLabel(long)).toBe(`${"a".repeat(31)}…`);
 	});
 });
 
@@ -75,6 +75,17 @@ describe("buildSubagentLabel", () => {
 		).toBe("Custom title");
 	});
 
+	it("caps explicit titles too", () => {
+		expect(
+			buildSubagentLabel({
+				title: "a".repeat(80),
+				profile: "coder",
+				task: "Ignored",
+				cwd: "/repo",
+			}),
+		).toBe(`${"a".repeat(31)}…`);
+	});
+
 	it("includes issue key, headline, profile, and folder", () => {
 		vi.spyOn(process, "cwd").mockReturnValue("/repo");
 		expect(
@@ -83,7 +94,7 @@ describe("buildSubagentLabel", () => {
 				task: "ITA-123: fix the login bug",
 				cwd: "/repo/src/auth",
 			}),
-		).toBe("ITA-123: fix the login bug (coder) /auth");
+		).toBe("ITA-123 fix the lo… [coder/auth]");
 	});
 
 	it("omits the issue key and folder when not present", () => {
@@ -94,6 +105,6 @@ describe("buildSubagentLabel", () => {
 				task: "Review the auth refactor",
 				cwd: "/repo",
 			}),
-		).toBe("Review the auth refactor (reviewer)");
+		).toBe("Review the auth refa… [reviewer]");
 	});
 });

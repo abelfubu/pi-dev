@@ -95,7 +95,7 @@ Built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used when a prof
 | `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 
-`subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. If omitted, the label is derived from the task automatically: it picks up Jira-style issue keys (e.g. `ITA-123`), the first line of the task, the profile name, and the working-directory folder. Example: `ITA-123: fix login (coder) /src/auth`.
+`subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. Labels are capped at 32 characters. If omitted, a compact label is derived from the task, profile, and working-directory folder. Example: `ITA-123 fix… [coder/auth]`.
 
 ### Jira
 

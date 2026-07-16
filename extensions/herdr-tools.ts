@@ -310,12 +310,13 @@ const SubagentNotifyParams = Type.Object({
 	),
 });
 
-function sanitizeLabel(label: string, maxLength = 60): string {
-	return label
-		.replace(/\s+/g, " ")
-		.trim()
-		.slice(0, maxLength)
-		.trimEnd();
+const MAX_SUBAGENT_LABEL_LENGTH = 32;
+
+function sanitizeLabel(label: string, maxLength = MAX_SUBAGENT_LABEL_LENGTH): string {
+	const cleaned = label.replace(/\s+/g, " ").trim();
+	if (cleaned.length <= maxLength) return cleaned;
+	if (maxLength <= 1) return maxLength === 1 ? "…" : "";
+	return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 function extractJiraIssueKey(text: string): string | undefined {
@@ -359,13 +360,13 @@ function buildSubagentLabel(params: {
 		headline = headline.slice(issueKey.length + 1).trim();
 	}
 
-	let label = "";
-	if (issueKey) label += `${issueKey}: `;
-	if (headline) label += headline;
-	label += ` (${params.profile})`;
-	if (folder) label += ` /${folder}`;
+	const prefix = issueKey ? `${issueKey} ` : "";
+	const context = folder ? `${params.profile}/${folder}` : params.profile;
+	const suffix = ` [${context}]`;
+	const headlineLength = MAX_SUBAGENT_LABEL_LENGTH - prefix.length - suffix.length;
+	const shortHeadline = headline ? sanitizeLabel(headline, headlineLength) : "";
 
-	return sanitizeLabel(label);
+	return sanitizeLabel(`${prefix}${shortHeadline}${suffix}`);
 }
 
 async function executeSubagent(
