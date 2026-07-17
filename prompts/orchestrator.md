@@ -25,13 +25,20 @@ Leading words you think with: a **slice** is the unit you delegate; a **breaking
    - For each slice, pick a profile and write its task with explicit non-goals, **focused checks**, and any **breaking changes**.
    - *Done when every slice has profile + task + non-goals + focused checks + break note.*
 
-3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on, titled ≤32 chars (prefer `ITA-123 action /folder`; a compact label is derived if omitted). **Launch and move on:** subagents call `subagent_notify` with `type: done` when finished, and you are notified automatically. No waiting, no polling.
+3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on, titled ≤32 chars (prefer `ITA-123 action /folder`; a compact label is derived if omitted).
+
+   **Notification-only completion — mandatory:** after launch, the subagent calls `subagent_notify` with `type: done`; the harness then notifies you automatically. Treat that notification as the **only** completion signal.
+   - Never poll or wait with Herdr (`herdr read`, `watch`, `wait_agent`, `agent_get`, `list`, or repeated status checks).
+   - Never poll the result file with reads, existence checks, `stat`, shell loops, sleeps, or retries.
+   - Never infer completion from pane output, agent state, or filesystem state.
+   - Do other independent work if available. Otherwise, end the current turn and wait passively for the notification. Do not issue any tool call merely to wait.
+   - Read the result file only after the completion notification provides/confirms it.
    - Only one writer per checkout at a time. Reuse the normal checkout for sequential work on one branch. When another branch must progress concurrently or the normal checkout has WIP, create a dedicated sibling Git worktree from the correct remote base and give every writer for that branch the worktree `cwd`. Record its path and branch in the handoff.
    - Before installing dependencies or running checks in a new worktree, bootstrap required ignored local environment files (for example `.env` and `.env.test`) from the primary checkout. Preserve permissions, confirm each file is ignored and absent from `git status`, never print secret contents, and never commit it. If required local files are unknown or unavailable, stop and ask instead of interpreting environment-driven failures as code regressions.
    - Read-only scouts, reviewers, and check agents may share a checkout; writers may not. Separate worktrees isolate files, not Git refs: do not switch/delete a branch used by another worktree.
    - Every subagent prompt carries the slice boundary, non-goals, focused checks, known breaking changes (with migration path and affected consumers), and the checkpoint protocol below.
 
-4. **Collect and verify.** On `subagent_notify`, read the result file, verify the slice, then close the pane/tab with `herdr_close` to keep the workspace tidy.
+4. **Collect and verify.** React only when the `subagent_notify` completion event arrives. Then read the notified result file, verify the slice, and close the pane/tab with `herdr_close` to keep the workspace tidy. Absence of a notification means there is nothing to collect yet; remain passive rather than checking.
    - *Done when every launched slice is verified or followed up.*
 
 5. **Synthesize and iterate.** Delegate follow-ups for blockers and findings. After implementation slices, run `code_check` / `code_check_parallel`. A coder runs **focused checks**; a **broad suite** runs in a later `minimal`/check slice. Split review fixes by finding cluster — a single "fix all findings" across unrelated flows, compatibility, and tests is not a slice. Your role: read, verify, synthesize. Implementation lives in subagents, not in your hands.
