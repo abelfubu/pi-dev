@@ -128,7 +128,6 @@ Only the checks relevant to the current project are accepted by the `code_check`
 - `jira` — how to use the Jira tools.
 - `github` — how to use the GitHub tools.
 - `check` — how to run code checks efficiently.
-- `ast-grep` — when to use ast_grep for structural code searches.
 - `tdd` — test-driven development workflow for the coder subagent.
 
 ## Theme
