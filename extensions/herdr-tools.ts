@@ -38,7 +38,7 @@ const DEFAULT_SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 	},
 	scout: {
 		name: "scout",
-		layout: "pane",
+		layout: "tab",
 	},
 	minimal: {
 		name: "minimal",
@@ -735,4 +735,4 @@ export default function (pi: ExtensionAPI) {
 	});
 }
 
-export { buildSubagentLabel, extractJiraIssueKey, taskHeadline, folderName, sanitizeLabel };
+export { buildSubagentLabel, extractJiraIssueKey, folderName, sanitizeLabel, taskHeadline };
