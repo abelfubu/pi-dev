@@ -1,3 +1,4 @@
+import { finalizeCheckResult } from "../outcome.js";
 import { runCommand } from "../runner.js";
 import type { CheckItem, CheckResult } from "../types.js";
 import { filterByPath, parseCargoMessages } from "./cargo.js";
@@ -8,8 +9,11 @@ export async function runCargoTest(
   override?: string
 ): Promise<CheckResult> {
   const command = override ? override : `cargo test --message-format=json`;
-  const { exitCode, stdout, stderr } = await runCommand(command, cwd);
-  return parseCargoTestOutput(exitCode, stdout, stderr, path);
+  const run = await runCommand(command, cwd);
+  const result = parseCargoTestOutput(run.exitCode, run.stdout, run.stderr, path);
+  result.command = command;
+  result.failureKind = run.failureKind;
+  return result;
 }
 
 export function parseCargoTestOutput(
@@ -28,30 +32,17 @@ export function parseCargoTestOutput(
   const errors = filtered.filter((i) => i.severity === "error").length;
   const warnings = filtered.filter((i) => i.severity === "warning").length;
 
-  if (errors === 0 && warnings === 0 && exitCode !== 0 && text.trim()) {
-    return {
+  return finalizeCheckResult(
+    {
       tool: "cargo_test",
-      pass: false,
-      errors: 1,
-      warnings: 0,
-      items: [
-        {
-          message: text.trim().split("\n")[0] ?? text.trim(),
-          severity: "error",
-        },
-      ],
+      pass: errors === 0,
+      errors,
+      warnings,
+      items: filtered,
       raw: text.slice(0, 2000),
-    };
-  }
-
-  return {
-    tool: "cargo_test",
-    pass: errors === 0,
-    errors,
-    warnings,
-    items: filtered,
-    raw: text.slice(0, 2000),
-  };
+    },
+    { exitCode, stdout, stderr, path }
+  );
 }
 
 function parseCargoTestFailures(text: string): CheckItem[] {

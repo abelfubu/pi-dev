@@ -15,7 +15,13 @@ export function formatCheckResult(result: CheckResult, maxPreview = 3): string {
     return `✅ ${label}: passed`;
   }
 
-  const lines: string[] = [`❌ ${label}: ${result.errors} error${result.errors === 1 ? "" : "s"}`];
+  const failureSummary =
+    result.failureKind === "timeout"
+      ? "timed out"
+      : result.failureKind === "execution"
+        ? "could not execute"
+        : `${result.errors} error${result.errors === 1 ? "" : "s"}`;
+  const lines: string[] = [`❌ ${label}: ${failureSummary}`];
   const errorItems = result.items.filter((i) => i.severity === "error");
 
   for (let i = 0; i < Math.min(maxPreview, errorItems.length); i++) {

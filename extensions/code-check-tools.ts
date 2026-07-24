@@ -69,7 +69,7 @@ export default async function (pi: ExtensionAPI) {
     pi.registerTool({
       name: "code_check",
       label: "Code Check",
-      description: "Run a single code check and return a concise summary",
+      description: "Preferred replacement for an equivalent raw npm, npx, or cargo check. Run one code check and return a concise authoritative summary; do not rerun the same check after it passes.",
       parameters: Type.Object({
         name: buildNameSchema(available),
         path: Type.Optional(
@@ -123,7 +123,7 @@ export default async function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "code_check_parallel",
     label: "Code Check: Parallel",
-    description: `Run multiple code checks in parallel and return a combined summary. Available checks: ${availableChecksText}`,
+    description: `Preferred replacement for equivalent raw npm, npx, or cargo checks. Run checks in parallel and return an authoritative combined summary; do not rerun checks that pass. Available checks: ${availableChecksText}`,
     parameters: parallelParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       try {

@@ -9,11 +9,13 @@ Run checks to verify local changes without wasting tokens. The `code_check_*` to
 
 ## Process
 
-1. **Discover once.** At the start of a coding task, call `code_check_discover` to see which tools are available.
-2. **Run after edits.** After any batch of code changes that could affect types, lint, or tests, call `code_check_parallel` with the available tools.
+1. **Run directly.** Call `code_check_parallel`; it discovers available checks itself. Use `code_check_discover` only when you need to inspect availability.
+2. **Run after edits.** After any batch of code changes that could affect types, lint, or tests, call `code_check_parallel`.
 3. **Single checks.** If you only need one check, use `code_check` with `name` set to one of `eslint`, `tsc`, `vitest`, `cargo_check`, `cargo_clippy`, or `cargo_test`.
-4. **Show only summaries.** Do not print full command output to the user; the tool already returns a concise summary.
-5. **Completion:** The summary is shown and any failures are surfaced with the tool name, error count, and the first three error messages.
+4. **No duplicate checks.** Treat a successful tool result as authoritative. Do not rerun an equivalent npm, npx, or cargo command.
+5. **Raw fallback.** Use raw commands only for unsupported checks, tool execution failures, or diagnostics omitted by a failing summary.
+6. **Show only summaries.** Do not print full command output to the user; the tool already returns a concise summary.
+7. **Completion:** The summary is shown and any failures are surfaced with the tool name, error count, and the first three error messages.
 
 ## Conventions
 

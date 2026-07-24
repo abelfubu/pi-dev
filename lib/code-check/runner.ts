@@ -1,5 +1,6 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import type { FailureKind } from "./types.js";
 
 const execAsync = promisify(exec);
 
@@ -7,6 +8,7 @@ export interface RunResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  failureKind?: FailureKind;
 }
 
 export async function runCommand(command: string, cwd: string): Promise<RunResult> {
@@ -18,10 +20,18 @@ export async function runCommand(command: string, cwd: string): Promise<RunResul
     });
     return { exitCode: 0, stdout: stdout ?? "", stderr: stderr ?? "" };
   } catch (err: any) {
+    const exitCode = typeof err.code === "number" ? err.code : 1;
+    const failureKind: FailureKind | undefined =
+      err.killed || err.code === "ETIMEDOUT"
+        ? "timeout"
+        : exitCode === 126 || exitCode === 127
+          ? "execution"
+          : undefined;
     return {
-      exitCode: typeof err.code === "number" ? err.code : 1,
+      exitCode,
       stdout: err.stdout ?? "",
       stderr: err.stderr ?? "",
+      failureKind,
     };
   }
 }

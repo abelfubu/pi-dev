@@ -121,7 +121,9 @@ Built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used when a prof
 | `code_check_discover` | Detect available checks in the project |
 | `code_check_parallel` | Run selected checks in parallel |
 
-Only the checks relevant to the current project are accepted by the `code_check` tool's `name` parameter. `code_check_discover` and `code_check_parallel` are always available.
+Only the checks relevant to the current project are accepted by the `code_check` tool's `name` parameter. `code_check_discover` and `code_check_parallel` are always available. `code_check_parallel` performs discovery automatically, so agents normally call it directly.
+
+Treat successful code-check results as authoritative instead of rerunning equivalent npm, npx, or cargo commands. Raw commands are fallbacks for unsupported checks, execution failures, or additional diagnostics after a failure. Result details include the executed command and exit code.
 
 ## Skills
 

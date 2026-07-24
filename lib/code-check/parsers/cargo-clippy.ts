@@ -1,3 +1,4 @@
+import { finalizeCheckResult } from "../outcome.js";
 import { runCommand } from "../runner.js";
 import type { CheckResult } from "../types.js";
 import { filterByPath, parseCargoMessages } from "./cargo.js";
@@ -8,8 +9,11 @@ export async function runCargoClippy(
   override?: string
 ): Promise<CheckResult> {
   const command = override ? override : `cargo clippy --message-format=json`;
-  const { exitCode, stdout, stderr } = await runCommand(command, cwd);
-  return parseCargoClippyOutput(exitCode, stdout, stderr, path);
+  const run = await runCommand(command, cwd);
+  const result = parseCargoClippyOutput(run.exitCode, run.stdout, run.stderr, path);
+  result.command = command;
+  result.failureKind = run.failureKind;
+  return result;
 }
 
 export function parseCargoClippyOutput(
@@ -23,12 +27,15 @@ export function parseCargoClippyOutput(
   const errors = filtered.filter((i) => i.severity === "error").length;
   const warnings = filtered.filter((i) => i.severity === "warning").length;
 
-  return {
-    tool: "cargo_clippy",
-    pass: errors === 0,
-    errors,
-    warnings,
-    items: filtered,
-    raw: (stderr || stdout).slice(0, 2000),
-  };
+  return finalizeCheckResult(
+    {
+      tool: "cargo_clippy",
+      pass: errors === 0,
+      errors,
+      warnings,
+      items: filtered,
+      raw: (stderr || stdout).slice(0, 2000),
+    },
+    { exitCode, stdout, stderr, path }
+  );
 }

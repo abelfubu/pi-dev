@@ -1,8 +1,9 @@
 import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runCommand } from "../runner.js";
-import type { CheckItem, CheckResult, ToolName } from "../types.js";
+import { finalizeCheckResult } from "../outcome.js";
+import { runCommand, type RunResult } from "../runner.js";
+import type { CheckItem, CheckResult } from "../types.js";
 
 export async function runVitest(
   cwd: string,
@@ -20,9 +21,9 @@ export async function runVitest(
     command = `npx vitest run ${target} --reporter=json --outputFile=${JSON.stringify(outputFile)}`;
   }
 
-  const { exitCode, stdout, stderr } = await runCommand(command, cwd);
+  const run = await runCommand(command, cwd);
 
-  const result = await parseVitestOutput(outputFile, stdout, stderr, exitCode);
+  const result = await parseVitestOutput(outputFile, run, command, path);
   if (outputFile) {
     try {
       await unlink(outputFile);
@@ -35,10 +36,11 @@ export async function runVitest(
 
 async function parseVitestOutput(
   outputFile: string | undefined,
-  stdout: string,
-  stderr: string,
-  exitCode: number
+  run: RunResult,
+  command: string,
+  path?: string
 ): Promise<CheckResult> {
+  const { stdout, stderr } = run;
   let raw: string | undefined;
   try {
     if (outputFile) {
@@ -51,7 +53,7 @@ async function parseVitestOutput(
   }
 
   if (!raw) {
-    return rawResult("vitest", exitCode, stdout, stderr);
+    return rawResult(run, command, path);
   }
 
   try {
@@ -74,31 +76,35 @@ async function parseVitestOutput(
     }
 
     const errors = items.filter((i) => i.severity === "error").length;
-    return {
-      tool: "vitest",
-      pass: errors === 0,
-      errors,
-      warnings: 0,
-      items,
-    };
+    return finalizeCheckResult(
+      {
+        tool: "vitest",
+        pass: errors === 0,
+        errors,
+        warnings: 0,
+        items,
+      },
+      { ...run, command, path }
+    );
   } catch {
-    return rawResult("vitest", exitCode, stdout, stderr);
+    return rawResult(run, command, path);
   }
 }
 
-function rawResult(
-  tool: ToolName,
-  exitCode: number,
-  stdout: string,
-  stderr: string
-): CheckResult {
+function rawResult(run: RunResult, command: string, path?: string): CheckResult {
+  const { exitCode, stdout, stderr } = run;
   const text = stderr || stdout;
-  return {
-    tool,
-    pass: exitCode === 0,
-    errors: exitCode === 0 ? 0 : 1,
-    warnings: 0,
-    items: text ? [{ message: text.split("\n")[0] ?? text }] : [],
-    raw: text.slice(0, 2000),
-  };
+  return finalizeCheckResult(
+    {
+      tool: "vitest",
+      pass: exitCode === 0,
+      errors: exitCode === 0 ? 0 : 1,
+      warnings: 0,
+      items: text
+        ? [{ message: text.split("\n")[0] ?? text, severity: exitCode === 0 ? undefined : "error" }]
+        : [],
+      raw: text.slice(0, 2000),
+    },
+    { ...run, command, path }
+  );
 }

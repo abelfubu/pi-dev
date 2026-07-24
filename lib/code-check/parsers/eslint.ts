@@ -1,5 +1,6 @@
+import { finalizeCheckResult } from "../outcome.js";
 import { runCommand } from "../runner.js";
-import type { CheckItem, CheckResult, ToolName } from "../types.js";
+import type { CheckItem, CheckResult } from "../types.js";
 
 export async function runEslint(
   cwd: string,
@@ -11,7 +12,8 @@ export async function runEslint(
     ? `${override}${path ? ` ${target}` : ""}`
     : `npx eslint ${target} --format json`;
 
-  const { exitCode, stdout, stderr } = await runCommand(command, cwd);
+  const run = await runCommand(command, cwd);
+  const { exitCode, stdout, stderr } = run;
 
   let results: unknown[] = [];
   try {
@@ -21,7 +23,20 @@ export async function runEslint(
   }
 
   if (!Array.isArray(results)) {
-    return rawResult("eslint", exitCode, stdout, stderr);
+    const text = stderr || stdout;
+    return finalizeCheckResult(
+      {
+        tool: "eslint",
+        pass: exitCode === 0,
+        errors: exitCode === 0 ? 0 : 1,
+        warnings: 0,
+        items: text
+          ? [{ message: text.split("\n")[0] ?? text, severity: exitCode === 0 ? undefined : "error" }]
+          : [],
+        raw: text.slice(0, 2000),
+      },
+      { ...run, command, path }
+    );
   }
 
   const items: CheckItem[] = [];
@@ -41,30 +56,14 @@ export async function runEslint(
 
   const errors = items.filter((i) => i.severity === "error").length;
   const warnings = items.filter((i) => i.severity === "warning").length;
-  return {
-    tool: "eslint",
-    pass: errors === 0,
-    errors,
-    warnings,
-    items,
-  };
-}
-
-function rawResult(
-  tool: ToolName,
-  exitCode: number,
-  stdout: string,
-  stderr: string
-): CheckResult {
-  const text = stderr || stdout;
-  return {
-    tool,
-    pass: exitCode === 0,
-    errors: exitCode === 0 ? 0 : 1,
-    warnings: 0,
-    items: text
-      ? [{ message: text.split("\n")[0] ?? text }]
-      : [],
-    raw: text.slice(0, 2000),
-  };
+  return finalizeCheckResult(
+    {
+      tool: "eslint",
+      pass: errors === 0,
+      errors,
+      warnings,
+      items,
+    },
+    { ...run, command, path }
+  );
 }

@@ -1,5 +1,6 @@
+import { finalizeCheckResult } from "../outcome.js";
 import { runCommand } from "../runner.js";
-import type { CheckItem, CheckResult, ToolName } from "../types.js";
+import type { CheckItem, CheckResult } from "../types.js";
 
 const TS_ERROR_RE = /^(.+?)(?:\((\d+),(\d+)\):|:(\d+):(\d+) -)\s+error\s+(\w+):\s+(.+)$/;
 
@@ -12,11 +13,15 @@ export async function runTsc(
     ? `${override}${path ? ` ${JSON.stringify(path)}` : ""}`
     : `npx tsc --noEmit --pretty false`;
 
-  const { exitCode, stdout, stderr } = await runCommand(command, cwd);
+  const run = await runCommand(command, cwd);
+  const { exitCode, stdout, stderr } = run;
   const text = stdout || stderr;
 
   if (exitCode === 0) {
-    return { tool: "tsc", pass: true, errors: 0, warnings: 0, items: [] };
+    return finalizeCheckResult(
+      { tool: "tsc", pass: true, errors: 0, warnings: 0, items: [] },
+      { ...run, command, path }
+    );
   }
 
   const items: CheckItem[] = [];
@@ -47,12 +52,15 @@ export async function runTsc(
     : items;
 
   const errors = filtered.filter((i) => i.severity === "error").length;
-  return {
-    tool: "tsc",
-    pass: errors === 0,
-    errors,
-    warnings: 0,
-    items: filtered,
-    raw: text.slice(0, 2000),
-  };
+  return finalizeCheckResult(
+    {
+      tool: "tsc",
+      pass: errors === 0,
+      errors,
+      warnings: 0,
+      items: filtered,
+      raw: text.slice(0, 2000),
+    },
+    { ...run, command, path }
+  );
 }
