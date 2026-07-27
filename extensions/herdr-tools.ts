@@ -81,6 +81,10 @@ function mergeProfiles(base: SubagentProfile, override: Partial<SubagentProfile>
 	};
 }
 
+export function resolveSubagentModel(explicitModel?: string, profileModel?: string): string | undefined {
+	return explicitModel?.trim() || profileModel?.trim() || undefined;
+}
+
 function errorResult(message: string, details: SubagentDetails = {}) {
 	return {
 		content: [textContent(message)],
@@ -446,7 +450,7 @@ async function executeSubagent(
 		}
 
 		const piArgs: string[] = [];
-		const model = params.model ?? profile.model;
+		const model = resolveSubagentModel(params.model, profile.model);
 		if (model) piArgs.push("--model", model);
 		for (const file of files) {
 			piArgs.push(`@${file}`);

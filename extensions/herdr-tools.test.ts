@@ -3,9 +3,28 @@ import {
 	buildSubagentLabel,
 	extractJiraIssueKey,
 	folderName,
+	resolveSubagentModel,
 	sanitizeLabel,
 	taskHeadline,
 } from "./herdr-tools.js";
+
+describe("resolveSubagentModel", () => {
+	it("prefers a non-empty explicit model", () => {
+		expect(resolveSubagentModel("openai-codex/gpt-5.6-sol", "kimi-coding/kimi-for-coding"))
+			.toBe("openai-codex/gpt-5.6-sol");
+	});
+
+	it("falls back to the profile model for an empty explicit model", () => {
+		expect(resolveSubagentModel("", "kimi-coding/kimi-for-coding"))
+			.toBe("kimi-coding/kimi-for-coding");
+		expect(resolveSubagentModel("   ", "kimi-coding/kimi-for-coding"))
+			.toBe("kimi-coding/kimi-for-coding");
+	});
+
+	it("returns undefined when neither model is configured", () => {
+		expect(resolveSubagentModel()).toBeUndefined();
+	});
+});
 
 describe("sanitizeLabel", () => {
 	it("trims whitespace and collapses runs of spaces", () => {
