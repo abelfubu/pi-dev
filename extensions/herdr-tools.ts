@@ -1,7 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { existsSync, rmSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import * as net from "node:net";
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Type } from "typebox";
@@ -18,6 +19,7 @@ interface SubagentDetails {
 	pane?: string;
 	tab?: string;
 	resultFile?: string;
+	launchId?: string;
 	socketError?: string;
 }
 
@@ -97,6 +99,8 @@ let notifySocketPromise: Promise<string | null> | null = null;
 let notifySocketServer: net.Server | null = null;
 let notifySocketDir: string | null = null;
 let notifySocketPath: string | null = null;
+let subagentCompletionSent = false;
+const completedLaunches = new Set<string>();
 
 function ensureNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 	if (notifySocketPromise && notifySocketPath && existsSync(notifySocketPath)) {
@@ -163,14 +167,27 @@ async function createNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
 	}
 }
 
+function isDuplicateCompletion(launchId: string | undefined, completed = completedLaunches): boolean {
+	if (!launchId) return false;
+	if (completed.has(launchId)) return true;
+	completed.add(launchId);
+	return false;
+}
+
 function handleNotifyMessage(conn: net.Socket, raw: string, pi?: ExtensionAPI) {
 	try {
 		const msg = JSON.parse(raw);
-		if (msg.type === "done" && pi) {
+		if ((msg.type === "done" || msg.type === "failed") && pi) {
+			const launchId = typeof msg.launchId === "string" ? msg.launchId : undefined;
+			if (isDuplicateCompletion(launchId)) {
+				respond(conn, { ok: true, duplicate: true });
+				return;
+			}
+
 			const resultFile = msg.resultFile ?? "unknown";
-			const summary = msg.summary ?? "done";
+			const summary = msg.summary ?? msg.type;
 			pi.sendUserMessage(
-				`Subagent done: ${resultFile} (${summary})`,
+				`Subagent ${msg.type}: ${resultFile} (${summary})`,
 				{ deliverAs: "followUp" },
 			);
 			respond(conn, { ok: true });
@@ -237,11 +254,90 @@ function sendNotifyMessage(socketPath: string, message: string): Promise<void> {
 	});
 }
 
+function assistantMessageText(message: unknown): string | undefined {
+	if (!message || typeof message !== "object") return undefined;
+	const candidate = message as { role?: unknown; content?: unknown };
+	if (candidate.role !== "assistant") return undefined;
+	if (typeof candidate.content === "string") return candidate.content.trim() || undefined;
+	if (!Array.isArray(candidate.content)) return undefined;
+
+	const text = candidate.content
+		.filter((part): part is { type: "text"; text: string } =>
+			Boolean(part) && typeof part === "object"
+			&& (part as { type?: unknown }).type === "text"
+			&& typeof (part as { text?: unknown }).text === "string")
+		.map((part) => part.text)
+		.join("\n")
+		.trim();
+	return text || undefined;
+}
+
+function latestAssistantText(ctx: { sessionManager?: { getBranch(): unknown[] } }): string | undefined {
+	const branch = ctx.sessionManager?.getBranch() ?? [];
+	for (let index = branch.length - 1; index >= 0; index--) {
+		const entry = branch[index] as { type?: unknown; message?: unknown } | undefined;
+		const text = assistantMessageText(entry?.type === "message" ? entry.message : entry);
+		if (text) return text;
+	}
+	return undefined;
+}
+
+async function ensureResultArtifact(resultFile: string, fallback: string): Promise<boolean> {
+	try {
+		if ((await readFile(resultFile, "utf8")).trim()) return false;
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code !== "ENOENT") throw err;
+	}
+	await writeFile(resultFile, `${fallback.trim()}\n`, "utf8");
+	return true;
+}
+
+function completionSummary(text: string | undefined, fallback: string): string {
+	const firstLine = text?.split("\n").map((line) => line.trim()).find(Boolean);
+	return sanitizeLabel(firstLine ?? fallback, 160);
+}
+
+async function notifySubagentParent(params: {
+	type: "done" | "failed";
+	resultFile: string;
+	launchId?: string;
+	summary: string;
+	parentPaneId?: string;
+	socketPath?: string;
+}): Promise<{ transport: "socket" | "herdr"; socketError?: string }> {
+	const message = JSON.stringify({
+		type: params.type,
+		resultFile: params.resultFile,
+		launchId: params.launchId,
+		summary: params.summary,
+	});
+
+	if (params.socketPath) {
+		try {
+			await sendNotifyMessage(params.socketPath, message);
+			return { transport: "socket" };
+		} catch (err) {
+			const socketError = err instanceof Error ? err.message : String(err);
+			if (!params.parentPaneId) throw new Error(`Socket notify failed and no Herdr parent pane id: ${socketError}`);
+			await notifyPane(params.parentPaneId, `subagent ${params.type}: ${params.resultFile} (${params.summary})`);
+			return { transport: "herdr", socketError };
+		}
+	}
+
+	if (!params.parentPaneId) {
+		throw new Error("Missing parent pane id and notify socket.");
+	}
+	await notifyPane(params.parentPaneId, `subagent ${params.type}: ${params.resultFile} (${params.summary})`);
+	return { transport: "herdr" };
+}
+
 function buildSubagentPrompt(params: {
 	task: string;
 	profile: string;
 	parentPaneId: string;
 	resultFile: string;
+	launchId: string;
 }): string {
 	return [
 		`## Task`,
@@ -251,12 +347,15 @@ function buildSubagentPrompt(params: {
 		`- Profile: ${params.profile}`,
 		`- Parent pane: ${params.parentPaneId}`,
 		`- Result file: ${params.resultFile}`,
-		`- Environment variables: SUBAGENT_PARENT_PANE_ID, SUBAGENT_RESULT_FILE, SUBAGENT_NOTIFY_SOCKET`,
+		`- Launch ID: ${params.launchId}`,
+		`- Environment variables: SUBAGENT_PARENT_PANE_ID, SUBAGENT_RESULT_FILE, SUBAGENT_LAUNCH_ID, SUBAGENT_NOTIFY_SOCKET`,
 		``,
 		`When you finish, write your final result to the result file, then call the subagent_notify tool with:`,
 		`- type: done`,
 		`- result_file: ${params.resultFile}`,
+		`- launch_id: ${params.launchId}`,
 		`- summary: a one-line summary of what you found or did`,
+		`The harness also sends a fallback notification after you settle, so never continue working after reporting completion.`,
 	].join("\n");
 }
 
@@ -305,6 +404,12 @@ const SubagentNotifyParams = Type.Object({
 		Type.String({
 			description:
 				"Absolute path to the result file the subagent wrote; falls back to SUBAGENT_RESULT_FILE env var",
+		}),
+	),
+	launch_id: Type.Optional(
+		Type.String({
+			description:
+				"Unique subagent launch ID; falls back to SUBAGENT_LAUNCH_ID env var",
 		}),
 	),
 	summary: Type.Optional(
@@ -413,6 +518,7 @@ async function executeSubagent(
 			resultDir,
 			`${profile.name}-result.md`,
 		);
+		const launchId = randomUUID();
 
 		const parentPaneId = process.env.HERDR_PANE_ID;
 		const parentWorkspaceId = process.env.HERDR_WORKSPACE_ID;
@@ -428,6 +534,7 @@ async function executeSubagent(
 				profile: profile.name,
 				parentPaneId,
 				resultFile,
+				launchId,
 			}),
 			"utf8",
 		);
@@ -460,6 +567,7 @@ async function executeSubagent(
 		const envVars = [
 			`SUBAGENT_PARENT_PANE_ID=${shellQuote(parentPaneId)}`,
 			`SUBAGENT_RESULT_FILE=${shellQuote(resultFile)}`,
+			`SUBAGENT_LAUNCH_ID=${shellQuote(launchId)}`,
 			...(socketPath ? [`SUBAGENT_NOTIFY_SOCKET=${shellQuote(socketPath)}`] : []),
 		].join(" ");
 		const command = `cd ${shellQuote(cwd)} && ${envVars} pi ${piArgs.map(shellQuote).join(" ")}`;
@@ -471,7 +579,7 @@ async function executeSubagent(
 					? `Subagent **${profile.name}** launched in tab **${container.tabId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
 					: `Subagent **${profile.name}** launched in pane **${container.paneId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
-			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath },
+			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath, launchId },
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -496,6 +604,8 @@ export default function (pi: ExtensionAPI) {
 	}
 	notifySocketPath = null;
 	notifySocketPromise = null;
+	subagentCompletionSent = false;
+	completedLaunches.clear();
 
 	if (process.env.HERDR_ENV !== "1") {
 		return;
@@ -504,6 +614,60 @@ export default function (pi: ExtensionAPI) {
 	// Start the notify socket server if we are the parent (not a subagent).
 	if (!process.env.SUBAGENT_NOTIFY_SOCKET) {
 		ensureNotifySocket(pi);
+	}
+
+	const subagentResultFile = process.env.SUBAGENT_RESULT_FILE;
+	if (subagentResultFile) {
+		// agent_settled was added after the oldest supported peer type definitions.
+		// Keep the runtime hook while remaining source-compatible with those definitions.
+		const onAgentSettled = pi.on as unknown as (
+			event: "agent_settled",
+			handler: (
+				event: unknown,
+				ctx: { sessionManager: { getBranch(): unknown[] } },
+			) => Promise<void>,
+		) => void;
+		onAgentSettled("agent_settled", async (_event, ctx) => {
+			if (subagentCompletionSent) return;
+			const finalText = latestAssistantText(ctx);
+			const fallback = finalText ?? "Subagent settled without a textual final response.";
+			try {
+				await ensureResultArtifact(subagentResultFile, fallback);
+				await notifySubagentParent({
+					type: "done",
+					resultFile: subagentResultFile,
+					launchId: process.env.SUBAGENT_LAUNCH_ID,
+					summary: completionSummary(finalText, "Subagent completed"),
+					parentPaneId: process.env.SUBAGENT_PARENT_PANE_ID,
+					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
+				});
+				subagentCompletionSent = true;
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				console.error(`Automatic subagent completion failed: ${message}`);
+			}
+		});
+
+		pi.on("session_shutdown", async (event, ctx) => {
+			if (subagentCompletionSent || event.reason !== "quit") return;
+			const finalText = latestAssistantText(ctx);
+			const fallback = finalText ?? "Subagent exited before reaching a settled completion state.";
+			try {
+				await ensureResultArtifact(subagentResultFile, fallback);
+				await notifySubagentParent({
+					type: "failed",
+					resultFile: subagentResultFile,
+					launchId: process.env.SUBAGENT_LAUNCH_ID,
+					summary: "Subagent exited before completing",
+					parentPaneId: process.env.SUBAGENT_PARENT_PANE_ID,
+					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
+				});
+				subagentCompletionSent = true;
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				console.error(`Subagent shutdown notification failed: ${message}`);
+			}
+		});
 	}
 
 	pi.registerTool({
@@ -677,9 +841,9 @@ export default function (pi: ExtensionAPI) {
 			"Notify the parent session that this subagent has finished. Uses a unix socket if SUBAGENT_NOTIFY_SOCKET is set; otherwise falls back to Herdr pane notification.",
 		parameters: SubagentNotifyParams,
 		async execute(_id, params) {
-			const socketPath = process.env.SUBAGENT_NOTIFY_SOCKET;
 			const resultFile = params.result_file ?? process.env.SUBAGENT_RESULT_FILE;
 			const summary = params.summary ?? "done";
+			const type = params.type === "failed" ? "failed" : "done";
 
 			if (!resultFile) {
 				return errorResult(
@@ -687,56 +851,46 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 
-			const message = JSON.stringify({
-				type: params.type ?? "done",
-				resultFile,
-				summary,
-			});
-
-			if (socketPath) {
-				try {
-					await sendNotifyMessage(socketPath, message);
+			try {
+				const result = await notifySubagentParent({
+					type,
+					resultFile,
+					launchId: params.launch_id ?? process.env.SUBAGENT_LAUNCH_ID,
+					summary,
+					parentPaneId: params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID,
+					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
+				});
+				subagentCompletionSent = true;
+				if (result.transport === "socket") {
 					return {
 						content: [textContent("Notified parent session via socket.")],
 						details: {},
 					};
-				} catch (err) {
-					const fallbackError = err instanceof Error ? err.message : String(err);
-					// Fall back to Herdr
-					const parentPaneId = params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID;
-					if (!parentPaneId) {
-						return errorResult(
-							`Socket notify failed and no Herdr parent pane id: ${fallbackError}`,
-						);
-					}
-					await notifyPane(
-						parentPaneId,
-						`subagent done: ${resultFile} (${summary})`,
-					);
-					return {
-						content: [textContent(`Socket failed (${fallbackError}); notified parent pane ${parentPaneId} via Herdr fallback.`)],
-						details: { socketError: fallbackError },
-					};
 				}
+				return {
+					content: [textContent(result.socketError
+						? `Socket failed (${result.socketError}); notified parent pane via Herdr fallback.`
+						: "Notified parent pane via Herdr.")],
+					details: result.socketError ? { socketError: result.socketError } : {},
+				};
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				return errorResult(message);
 			}
-
-			// No socket: Herdr fallback
-			const parentPaneId = params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID;
-			if (!parentPaneId) {
-				return errorResult(
-					"Missing parent_pane_id; no SUBAGENT_PARENT_PANE_ID or SUBAGENT_NOTIFY_SOCKET env vars found.",
-				);
-			}
-			await notifyPane(
-				parentPaneId,
-				`subagent done: ${resultFile} (${summary})`,
-			);
-			return {
-				content: [textContent(`Notified parent pane ${parentPaneId} via Herdr.`)],
-				details: {},
-			};
 		},
 	});
 }
 
-export { buildSubagentLabel, extractJiraIssueKey, folderName, sanitizeLabel, taskHeadline };
+export {
+	assistantMessageText,
+	buildSubagentLabel,
+	buildSubagentPrompt,
+	completionSummary,
+	ensureResultArtifact,
+	extractJiraIssueKey,
+	folderName,
+	isDuplicateCompletion,
+	latestAssistantText,
+	sanitizeLabel,
+	taskHeadline,
+};

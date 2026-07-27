@@ -1,12 +1,78 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+	assistantMessageText,
 	buildSubagentLabel,
+	buildSubagentPrompt,
+	completionSummary,
+	ensureResultArtifact,
 	extractJiraIssueKey,
 	folderName,
+	isDuplicateCompletion,
+	latestAssistantText,
 	resolveSubagentModel,
 	sanitizeLabel,
 	taskHeadline,
 } from "./herdr-tools.js";
+
+describe("subagent completion", () => {
+	it("includes the launch id in the prompt and notification instructions", () => {
+		const prompt = buildSubagentPrompt({
+			task: "Inspect the code",
+			profile: "scout",
+			parentPaneId: "parent-pane",
+			resultFile: "/tmp/result.md",
+			launchId: "launch-123",
+		});
+
+		expect(prompt).toContain("Launch ID: launch-123");
+		expect(prompt).toContain("launch_id: launch-123");
+	});
+
+	it("extracts the latest assistant text from session entries", () => {
+		const ctx = {
+			sessionManager: {
+				getBranch: () => [
+					{ type: "message", message: { role: "assistant", content: [{ type: "text", text: "older" }] } },
+					{ type: "message", message: { role: "toolResult", content: [{ type: "text", text: "ignored" }] } },
+					{ type: "message", message: { role: "assistant", content: [{ type: "text", text: "final result" }] } },
+				],
+			},
+		};
+
+		expect(latestAssistantText(ctx)).toBe("final result");
+		expect(assistantMessageText({ role: "user", content: "ignored" })).toBeUndefined();
+	});
+
+	it("writes a fallback artifact only when the result is missing or empty", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "herdr-tools-test-"));
+		const resultFile = join(dir, "result.md");
+		try {
+			expect(await ensureResultArtifact(resultFile, "fallback result")).toBe(true);
+			expect(await readFile(resultFile, "utf8")).toBe("fallback result\n");
+
+			await writeFile(resultFile, "agent-authored result\n", "utf8");
+			expect(await ensureResultArtifact(resultFile, "must not replace")).toBe(false);
+			expect(await readFile(resultFile, "utf8")).toBe("agent-authored result\n");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("deduplicates completion messages by launch id", () => {
+		const completed = new Set<string>();
+		expect(isDuplicateCompletion("launch-123", completed)).toBe(false);
+		expect(isDuplicateCompletion("launch-123", completed)).toBe(true);
+		expect(isDuplicateCompletion(undefined, completed)).toBe(false);
+	});
+
+	it("uses the first response line as a bounded summary", () => {
+		expect(completionSummary("Completed the task\nMore detail", "fallback")).toBe("Completed the task");
+		expect(completionSummary(undefined, "fallback")).toBe("fallback");
+	});
+});
 
 describe("resolveSubagentModel", () => {
 	it("prefers a non-empty explicit model", () => {
