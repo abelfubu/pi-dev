@@ -1,7 +1,64 @@
 import { describe, it, expect } from "vitest";
-import { prToolConfig } from "./pr-tools.js";
+import {
+  assertNoOpenPullRequestByCurrentUser,
+  prToolConfig,
+} from "./pr-tools.js";
 
 const ctx = { cwd: "/tmp/repo" };
+
+describe("assertNoOpenPullRequestByCurrentUser", () => {
+  it("allows creation when the current user has no open PR", async () => {
+    const calls: Array<{ args: string[]; cwd?: string }> = [];
+    await assertNoOpenPullRequestByCurrentUser(
+      { repo: "owner/repo" },
+      ctx,
+      async (args, cwd) => {
+        calls.push({ args, cwd });
+        return [];
+      },
+    );
+
+    expect(calls).toEqual([
+      {
+        args: [
+          "pr",
+          "list",
+          "--state",
+          "open",
+          "--author",
+          "@me",
+          "--limit",
+          "1",
+          "--json",
+          "number,title,url",
+          "--repo",
+          "owner/repo",
+        ],
+        cwd: "/tmp/repo",
+      },
+    ]);
+  });
+
+  it("blocks creation when the current user already has an open PR", async () => {
+    await expect(
+      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
+        {
+          number: 42,
+          title: "Existing work",
+          url: "https://github.com/owner/repo/pull/42",
+        },
+      ]),
+    ).rejects.toThrow(
+      "PR creation blocked: you already have open PR #42 (Existing work)",
+    );
+  });
+
+  it("fails closed when GitHub returns an unexpected result", async () => {
+    await expect(
+      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => ({})),
+    ).rejects.toThrow("Unable to verify");
+  });
+});
 
 describe("prToolConfig", () => {
   it("has the expected tool metadata", () => {

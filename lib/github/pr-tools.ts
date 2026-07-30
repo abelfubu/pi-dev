@@ -1,7 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { registerGhActionTool, type GhActionToolConfig } from "./tool.js";
+import { registerGhActionTool, type ActionContext, type GhActionToolConfig } from "./tool.js";
 import { formatPr, formatPrList, formatChecks } from "./format.js";
+import { runGhJson } from "./runner.js";
 
 const DEFAULT_VIEW_FIELDS =
   "number,title,url,state,headRefName,baseRefName,isDraft,mergeable,mergeStateStatus,body";
@@ -42,6 +43,50 @@ interface PrParams extends Record<string, unknown> {
   state?: string;
   author?: string;
   limit?: number;
+}
+
+interface AuthoredPullRequest {
+  number: number;
+  title: string;
+  url: string;
+}
+
+type JsonRunner = (args: string[], cwd?: string) => Promise<unknown>;
+
+export async function assertNoOpenPullRequestByCurrentUser(
+  params: Pick<PrParams, "repo">,
+  ctx: ActionContext,
+  runJson: JsonRunner = runGhJson,
+): Promise<void> {
+  if (process.env.SUBAGENT_RESULT_FILE) {
+    throw new Error("Subagents cannot create pull requests. The parent orchestrator owns shipping.");
+  }
+
+  const args = [
+    "pr",
+    "list",
+    "--state",
+    "open",
+    "--author",
+    "@me",
+    "--limit",
+    "1",
+    "--json",
+    "number,title,url",
+  ];
+  if (params.repo) args.push("--repo", params.repo);
+
+  const result = await runJson(args, ctx.cwd);
+  if (!Array.isArray(result)) {
+    throw new Error("Unable to verify the current user's open pull requests.");
+  }
+
+  const existing = result[0] as AuthoredPullRequest | undefined;
+  if (existing) {
+    throw new Error(
+      `PR creation blocked: you already have open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`,
+    );
+  }
 }
 
 export const prToolConfig: GhActionToolConfig<PrParams> = {
@@ -146,6 +191,7 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
         if (params.milestone) args.push("--milestone", params.milestone);
         return args;
       },
+      beforeRun: assertNoOpenPullRequestByCurrentUser,
       format: (result) => {
         const { stdout } = result as { stdout: string };
         const url = stdout.match(/https:\/\/github\.com\/[^\s]+/)?.[0] ?? stdout;

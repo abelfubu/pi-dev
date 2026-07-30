@@ -16,6 +16,7 @@ export type GhRunType = "json" | "text";
 
 export interface GhActionHandler<P = Record<string, unknown>> {
   buildArgs: (params: P, ctx: ActionContext) => string[];
+  beforeRun?: (params: P, ctx: ActionContext) => Promise<void>;
   runType: GhRunType;
   format: (result: unknown, params: P, ctx: ActionContext) => string;
 }
@@ -49,7 +50,9 @@ export function registerGhActionTool<P extends Record<string, unknown>>(
         }
 
         const actionContext: ActionContext = { cwd };
-        const args = handler.buildArgs(typedParams as P, actionContext);
+        const typedActionParams = typedParams as P;
+        const args = handler.buildArgs(typedActionParams, actionContext);
+        await handler.beforeRun?.(typedActionParams, actionContext);
         if (typedParams.repo) {
           args.push("--repo", typedParams.repo as string);
         }
