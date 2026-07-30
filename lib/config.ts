@@ -8,6 +8,8 @@ export type SubagentLayout = "tab" | "pane";
 export interface SubagentDefaultsConfig {
   model?: string;
   layout?: SubagentLayout;
+  /** Auto-close the subagent Herdr pane when it reports done. Default: true. */
+  autoClosePane?: boolean;
 }
 
 export interface SubagentProfileConfig {

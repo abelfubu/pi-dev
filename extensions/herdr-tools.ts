@@ -174,6 +174,28 @@ function isDuplicateCompletion(launchId: string | undefined, completed = complet
 	return false;
 }
 
+let autoClosePanePromise: Promise<boolean> | null = null;
+
+function shouldAutoClosePane(): Promise<boolean> {
+	if (!autoClosePanePromise) {
+		autoClosePanePromise = loadConfig(process.cwd())
+			.then((config) => config.subagentDefaults?.autoClosePane !== false)
+			.catch(() => true);
+	}
+	return autoClosePanePromise;
+}
+
+async function closeSubagentPane(paneId: unknown) {
+	if (typeof paneId !== "string" || !paneId) return;
+	if (!(await shouldAutoClosePane())) return;
+	try {
+		await closeHerdrPane(paneId);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		console.error(`Subagent pane auto-close failed: ${message}`);
+	}
+}
+
 function handleNotifyMessage(conn: net.Socket, raw: string, pi?: ExtensionAPI) {
 	try {
 		const msg = JSON.parse(raw);
@@ -191,6 +213,10 @@ function handleNotifyMessage(conn: net.Socket, raw: string, pi?: ExtensionAPI) {
 				{ deliverAs: "followUp" },
 			);
 			respond(conn, { ok: true });
+			if (msg.type === "done") {
+				// Best-effort cleanup; keep failed panes open for inspection.
+				void closeSubagentPane(msg.paneId);
+			}
 		} else {
 			respond(conn, { ok: false, error: `Unknown message type: ${msg.type}` });
 		}
@@ -302,6 +328,7 @@ async function notifySubagentParent(params: {
 	type: "done" | "failed";
 	resultFile: string;
 	launchId?: string;
+	paneId?: string;
 	summary: string;
 	parentPaneId?: string;
 	socketPath?: string;
@@ -310,6 +337,7 @@ async function notifySubagentParent(params: {
 		type: params.type,
 		resultFile: params.resultFile,
 		launchId: params.launchId,
+		paneId: params.paneId,
 		summary: params.summary,
 	});
 
@@ -604,6 +632,7 @@ export default function (pi: ExtensionAPI) {
 	}
 	notifySocketPath = null;
 	notifySocketPromise = null;
+	autoClosePanePromise = null;
 	subagentCompletionSent = false;
 	completedLaunches.clear();
 
@@ -637,6 +666,7 @@ export default function (pi: ExtensionAPI) {
 					type: "done",
 					resultFile: subagentResultFile,
 					launchId: process.env.SUBAGENT_LAUNCH_ID,
+					paneId: process.env.HERDR_PANE_ID,
 					summary: completionSummary(finalText, "Subagent completed"),
 					parentPaneId: process.env.SUBAGENT_PARENT_PANE_ID,
 					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
@@ -856,6 +886,7 @@ export default function (pi: ExtensionAPI) {
 					type,
 					resultFile,
 					launchId: params.launch_id ?? process.env.SUBAGENT_LAUNCH_ID,
+					paneId: process.env.HERDR_PANE_ID,
 					summary,
 					parentPaneId: params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID,
 					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
