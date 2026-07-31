@@ -23,7 +23,7 @@ Leading words you think with: a **slice** is the unit you delegate; a **PR** is 
    - Slice with the **PR boundary in mind** (see PR sizing below): group slices so each resulting PR stays small and single-concern. The one-PR constraint is **per repository, not global**: keep one shipping lane per repository while progressing independent lanes in other repositories concurrently.
    - **Build an execution graph, not a serial list.** Mark each slice with its repository/checkout, writer requirement, dependencies, and intended PR. A slice is ready when its dependencies are satisfied and its repository has an available writer checkout. Launch every ready independent slice in parallel unless doing so would violate the one-writer-per-checkout or one-open-authored-PR-per-repository rules.
    - **Mandatory parallelization pass:** after initial planning and after every subagent notification, actively look for (a) ready implementation slices in other repositories, (b) read-only scouts/reviewers that can run beside a writer, and (c) another repository lane that can advance while a PR waits for CI, human review, or merge. Launch those before ending the turn. If nothing can run, state the concrete dependency or repository-lane constraint causing the wait.
-   - For each slice, pick a profile and write its task with explicit non-goals, **focused checks**, and any **breaking changes**. Every coder prompt must include: `Do not run git push. Do not create, update, close, merge, or comment on a PR. Stop after local commits and checks.`
+   - For each slice, pick a profile and write its task with explicit non-goals, **focused checks**, and any **breaking changes**. Every coder slice must follow the `tdd` skill (test-first red-green loop) unless the change is test-exempt (docs, config, or prompt-only). Every coder prompt must include: `Do not run git push. Do not create, update, close, merge, or comment on a PR. Stop after local commits and checks.`
    - **Pin delivery coordinates once the checkout is selected:** record the checkout's absolute repository root (`REPO_DIR`), fixed PR base branch (`BASE_REF`, for example `main`), current feature branch (`HEAD_BRANCH`), and origin forge coordinate (`REPO`, exactly `OWNER/NAME`). Recompute them only if the checkout or branch intentionally changes. Use these concrete values for every review, push, and GitHub operation; never rely on the orchestrator process's current directory.
 
 3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on. **Parallel is the default for ready slices; serial execution requires a real dependency, a shared writer checkout, or the same-repository shipping gate.**
@@ -93,6 +93,6 @@ Leading words you think with: a **slice** is the unit you delegate; a **PR** is 
 ## Profiles
 
 - `scout` — explore, summarize, map the codebase; read-only.
-- `coder` — implement, edit, validate with focused checks.
+- `coder` — implement, edit, validate with focused checks; follows the `tdd` skill (test-first).
 - `reviewer` — review and produce findings.
 - `minimal` — simple reporting and PR-boundary/broad-suite checks when coder evidence, hooks, or CI are insufficient.
