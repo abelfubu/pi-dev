@@ -26,7 +26,7 @@ Hold on every run:
 ## Shipping policy
 
 - Subagents never push branches or create/mutate pull requests. The parent orchestrator owns shipping.
-- Follow the orchestrator's order: coder checks → global `code-review` two-axis review (Standards and Spec) → global `tuicr` user-led review → explicit user approval → PR creation.
+- Follow the orchestrator's order: coder checks → global `code-review` two-axis review (Standards and Spec) → `tuicr_review` human gate → explicit user approval → PR creation.
 - Explicit user approval is required. Empty tuicr comments, closing tuicr, or silence are not approval.
 - Any code change after tuicr approval invalidates approval and requires both reviews again.
 - Hard rule: only one open PR authored by the authenticated GitHub user may exist per repository, including drafts. Check with `gh_pr` action `list`, `author: "@me"`, `state: "open"` before planning and immediately before creation. Existing PRs by other users do not count. If one exists, stop and report it.
@@ -36,7 +36,7 @@ Hold on every run:
 
 ### Ship a change
 1. Complete coder checks and the two-axis `code-review` skill.
-2. Complete the user-led `tuicr` review and receive explicit approval.
+2. Complete the `tuicr_review` human gate and receive explicit approval.
 3. Recheck the approved diff and the authenticated user's open PRs.
 4. Open PR: `gh_pr` with `action: create`.
 2. Check CI: `gh_pr` with `action: checks`.

@@ -79,6 +79,7 @@ export async function createHerdrPane(
   label: string,
   cwd?: string,
   parent?: HerdrParentContext,
+  focus = false,
 ): Promise<HerdrPane> {
   if (layout === "tab") {
     const tabResult = await runHerdrJson([
@@ -98,7 +99,7 @@ export async function createHerdrPane(
     ...(parent ? [parent.paneId] : ["--current"]),
     "--direction",
     "right",
-    "--no-focus",
+    focus ? "--focus" : "--no-focus",
     ...(cwd ? ["--cwd", cwd] : []),
   ]);
   const { paneId } = parseHerdrPaneIds(splitResult);
@@ -110,6 +111,10 @@ export async function createHerdrPane(
 
 export async function runInPane(paneId: string, command: string): Promise<void> {
   await runHerdr(["pane", "run", paneId, command]);
+}
+
+export async function zoomHerdrPane(paneId: string, zoomed: boolean): Promise<void> {
+  await runHerdr(["pane", "zoom", "--pane", paneId, zoomed ? "--on" : "--off"]);
 }
 
 export async function notifyPane(paneId: string, message: string): Promise<void> {

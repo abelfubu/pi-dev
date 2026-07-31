@@ -8,7 +8,7 @@ vi.mock("node:child_process", () => ({
   execFile: execFileMock,
 }));
 
-import { createHerdrPane } from "./herdr.js";
+import { createHerdrPane, zoomHerdrPane } from "./herdr.js";
 
 describe("createHerdrPane", () => {
   beforeEach(() => {
@@ -49,6 +49,29 @@ describe("createHerdrPane", () => {
       1,
       "herdr",
       ["pane", "split", "w7:p1", "--direction", "right", "--no-focus", "--cwd", "/repo"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("can focus a newly split pane", async () => {
+    await createHerdrPane("pane", "review", "/repo", undefined, true);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      1,
+      "herdr",
+      ["pane","split","--current","--direction","right","--focus","--cwd","/repo"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("sets pane zoom explicitly", async () => {
+    await zoomHerdrPane("w7:p3", true);
+
+    expect(execFileMock).toHaveBeenCalledWith(
+      "herdr",
+      ["pane","zoom","--pane","w7:p3","--on"],
       expect.any(Object),
       expect.any(Function),
     );

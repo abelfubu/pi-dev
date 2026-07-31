@@ -99,6 +99,14 @@ Built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used when a prof
 
 Completion notification is harness-owned. A subagent may call `subagent_notify` for immediate delivery, but an `agent_settled` hook automatically creates a missing result artifact and notifies the parent if the model forgets. Each launch has a unique ID, so explicit and automatic notifications are deduplicated. Graceful early exits report a failed completion.
 
+### tuicr
+
+| Tool | Purpose |
+|------|---------|
+| `tuicr_review` | Open a pinned local diff in a focused Herdr pane, read its comments, and close the owned pane. |
+
+`tuicr_review` supports `open`, `comments`, and `close`. `open` resolves the Git merge base and HEAD to immutable commit SHAs before launching tuicr. Empty comments never imply approval.
+
 ### Jira
 
 | Tool | Purpose |
