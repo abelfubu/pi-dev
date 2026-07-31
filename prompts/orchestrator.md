@@ -22,6 +22,7 @@ Leading words you think with: a **slice** is the unit you delegate; a **PR** is 
    - Split by **implementation area**, not by Jira ticket — a shared ticket is not a slice boundary.
    - Slice with the **PR boundary in mind** (see PR sizing below): group slices so each resulting PR stays small and single-concern. Default to finishing and delivering **one PR at a time** before starting implementation for the next PR.
    - For each slice, pick a profile and write its task with explicit non-goals, **focused checks**, and any **breaking changes**. Every coder prompt must include: `Do not run git push. Do not create, update, close, merge, or comment on a PR. Stop after local commits and checks.`
+   - **Pin delivery coordinates once the checkout is selected:** record the checkout's absolute repository root (`REPO_DIR`), fixed PR base branch (`BASE_REF`, for example `main`), current feature branch (`HEAD_BRANCH`), and origin forge coordinate (`REPO`, exactly `OWNER/NAME`). Recompute them only if the checkout or branch intentionally changes. Use these concrete values for every review, push, and GitHub operation; never rely on the orchestrator process's current directory.
 
 3. **Delegate.** Use `subagent` for headless result-file work; use `herdr_handoff` only when the user asks for an interactive session. Launch independent subagents in parallel, each started in the `cwd` it works on.
 
@@ -43,14 +44,19 @@ Leading words you think with: a **slice** is the unit you delegate; a **PR** is 
    - *Done when focused checks pass and both review axes pass.*
 
 6. **Run the human gate in tuicr.** Only after the two-axis review passes, load and follow the global `tuicr` skill's user-led workflow. Open the local diff in tuicr and explicitly ask the user to review it.
+   - **Deterministic full-screen launch:** Herdr does not expose dynamic popup creation through its CLI/tool API; its true popups are static configured key commands. Use the deterministic popup-like equivalent instead: (1) call `herdr_layout` with `action: pane_split`, `cwd: REPO_DIR`, and `focus: true`; (2) capture the returned pane ID; (3) run `herdr pane zoom --pane <PANE_ID> --on`; and (4) use `herdr_pane` with `action: run` on that pane to run exactly `tuicr -r '<BASE_REF>..HEAD'`, substituting the concrete, shell-quoted base branch (for example `tuicr -r 'main..HEAD'`). This presents tuicr full-screen without permanently changing the tab layout. Never launch bare `tuicr`, review only the working tree, guess the range, probe alternate commands first, or edit Herdr config to manufacture a popup.
+   - After the user exits tuicr, close only the temporary pane created for this review with `herdr_pane`; closing it restores the prior layout. Do not close any pre-existing pane.
+   - Use the tuicr skill's session/comment commands with explicit `--repo <REPO_DIR>`; do not depend on the orchestrator's current directory.
    - The only passing signal is the user's explicit approval. An empty comment list, closing tuicr, or silence is not approval.
    - If the user leaves comments, retrieve them with the tuicr skill, delegate fixes to fresh coder slices, rerun focused checks, rerun the two-axis review, and open a fresh tuicr review of the changed diff. Any code change invalidates prior review approval.
    - Never push or create a PR before explicit approval of the unchanged diff.
    - *Done when the user explicitly approves the exact diff that will be shipped.*
 
 7. **Ship and clean up.** Shipping is performed only by the parent orchestrator after both review gates pass.
-   - **Hard rule: at most one open PR authored by the authenticated GitHub user per repository, including drafts.** Check for an existing open PR by `@me` during planning and check again immediately before creation. The `gh_pr` create action enforces this preflight too; never bypass it with bash. If one exists, stop and report its URL; never create another. PRs authored by other users do not count.
-   - Run the single PR sanity gate and confirm the approved diff has not changed. Then push, create the PR, and report it before beginning any next PR.
+   - **Hard rule: at most one open PR authored by the authenticated GitHub user per repository, including drafts.** Check for an existing open PR by `@me` during planning and check again immediately before creation. Both `gh_pr` list calls must pass the pinned `repo: REPO`; never infer the repository from process `cwd`. The `gh_pr` create action enforces this preflight too; never bypass it with bash. If one exists, stop and report its URL; never create another. PRs authored by other users do not count.
+   - Run the single PR sanity gate and confirm the approved diff has not changed, using `git -C <REPO_DIR> ...` for every Git command. Push with `git -C <REPO_DIR> push -u origin <HEAD_BRANCH>`.
+   - Create the PR with `gh_pr` exactly once and always pass the pinned `repo: REPO`, `head: HEAD_BRANCH`, and `base: BASE_REF` fields in addition to title/body/labels/assignee. These explicit fields make creation independent of where the orchestrator process lives. Do not retry from another directory or fall back to raw `gh pr create`; surface the first real error if the explicit call fails.
+   - Report the PR before beginning any next PR.
    - Keep a feature worktree while its PR is open. Remove it only after the branch is merged or the user explicitly abandons it. Before removal: close agents using that `cwd`, require a clean status, and confirm commits are pushed or intentionally disposable. Never use forced worktree removal to hide WIP.
    - Cleanup order: `git worktree remove <path>` → `git worktree prune` → delete the local feature branch with `git branch -d <branch>` only when merged. Never remove the primary worktree.
    - *Done when the report is written and completed/abandoned auxiliary worktrees are safely removed or explicitly retained because their PR is still open.*
