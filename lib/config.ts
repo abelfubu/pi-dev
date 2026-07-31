@@ -16,6 +16,14 @@ export interface SubagentProfileConfig {
   name?: string;
   layout?: SubagentLayout;
   model?: string;
+  /** Allowlist of tools passed to the subagent via `--tools`. `subagent_notify` is always appended. */
+  tools?: string[];
+  /** Tools disabled via `--exclude-tools`. */
+  excludeTools?: string[];
+  /** Explicit skill paths. When present, the subagent launches with `--no-skills` plus one `--skill` per entry (empty array = no skills). */
+  skills?: string[];
+  /** Explicit prompt template paths. When present, the subagent launches with `--no-prompt-templates` plus one `--prompt-template` per entry. */
+  promptTemplates?: string[];
 }
 
 export interface CodeCheckConfig {

@@ -3,8 +3,9 @@ import { existsSync, rmSync } from "node:fs";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import * as net from "node:net";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { loadConfig, type PiDevConfig } from "../lib/config.js";
 import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
@@ -27,24 +28,60 @@ interface SubagentProfile {
 	name: string;
 	layout?: "tab" | "pane";
 	model?: string;
+	tools?: string[];
+	excludeTools?: string[];
+	skills?: string[];
+	promptTemplates?: string[];
 }
+
+// Resolve the repo-local check and tdd skills so the coder profile keeps its
+// workflow guidance even when skill discovery is disabled. Omitted when not installed.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const CODER_SKILLS = [join(REPO_ROOT, "skills", "check")].filter(existsSync).concat("tdd");
+
+const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls", "subagent_notify"];
+const CODER_TOOLS = [
+	"read",
+	"bash",
+	"edit",
+	"write",
+	"grep",
+	"find",
+	"ls",
+	"code_check",
+	"code_check_discover",
+	"code_check_parallel",
+	"subagent_notify",
+];
 
 const DEFAULT_SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 	reviewer: {
 		name: "reviewer",
 		layout: "tab",
+		tools: READ_ONLY_TOOLS,
+		skills: [],
+		promptTemplates: [],
 	},
 	coder: {
 		name: "coder",
 		layout: "tab",
+		tools: CODER_TOOLS,
+		skills: CODER_SKILLS,
+		promptTemplates: [],
 	},
 	scout: {
 		name: "scout",
 		layout: "tab",
+		tools: READ_ONLY_TOOLS,
+		skills: [],
+		promptTemplates: [],
 	},
 	minimal: {
 		name: "minimal",
 		layout: "pane",
+		tools: ["bash", "read", "subagent_notify"],
+		skills: [],
+		promptTemplates: [],
 	},
 };
 
@@ -68,6 +105,10 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 				name: profileConfig.name,
 				layout: profileConfig.layout,
 				model: profileConfig.model,
+				tools: profileConfig.tools,
+				excludeTools: profileConfig.excludeTools,
+				skills: profileConfig.skills,
+				promptTemplates: profileConfig.promptTemplates,
 			});
 		}
 	}
@@ -80,11 +121,60 @@ function mergeProfiles(base: SubagentProfile, override: Partial<SubagentProfile>
 		name: override.name ?? base.name,
 		layout: override.layout ?? base.layout,
 		model: override.model ?? base.model,
+		tools: override.tools ?? base.tools,
+		excludeTools: override.excludeTools ?? base.excludeTools,
+		skills: override.skills ?? base.skills,
+		promptTemplates: override.promptTemplates ?? base.promptTemplates,
 	};
 }
 
 export function resolveSubagentModel(explicitModel?: string, profileModel?: string): string | undefined {
 	return explicitModel?.trim() || profileModel?.trim() || undefined;
+}
+
+/** Expand a leading `~` and resolve relative paths against the subagent cwd. */
+function expandConfigPath(path: string, cwd: string): string {
+	const expanded = path === "~" ? homedir() : path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
+	return resolve(cwd, expanded);
+}
+
+/** Build the `pi` CLI argument list for a subagent session. */
+function buildPiArgs(params: {
+	profile: SubagentProfile;
+	model?: string;
+	files: string[];
+	promptFile: string;
+	cwd: string;
+}): string[] {
+	const { profile, model, files, promptFile, cwd } = params;
+	const args: string[] = [];
+	if (model) args.push("--model", model);
+	if (profile.tools) {
+		const tools = profile.tools.includes("subagent_notify")
+			? profile.tools
+			: [...profile.tools, "subagent_notify"];
+		args.push("--tools", tools.join(","));
+	}
+	if (profile.excludeTools?.length) {
+		args.push("--exclude-tools", profile.excludeTools.join(","));
+	}
+	if (profile.skills) {
+		args.push("--no-skills");
+		for (const skill of profile.skills) {
+			args.push("--skill", expandConfigPath(skill, cwd));
+		}
+	}
+	if (profile.promptTemplates) {
+		args.push("--no-prompt-templates");
+		for (const template of profile.promptTemplates) {
+			args.push("--prompt-template", expandConfigPath(template, cwd));
+		}
+	}
+	for (const file of files) {
+		args.push(`@${file}`);
+	}
+	args.push(`@${promptFile}`);
+	return args;
 }
 
 function errorResult(message: string, details: SubagentDetails = {}) {
@@ -584,13 +674,13 @@ async function executeSubagent(
 			throw new Error("herdr did not return a pane id");
 		}
 
-		const piArgs: string[] = [];
-		const model = resolveSubagentModel(params.model, profile.model);
-		if (model) piArgs.push("--model", model);
-		for (const file of files) {
-			piArgs.push(`@${file}`);
-		}
-		piArgs.push(`@${promptFile}`);
+		const piArgs = buildPiArgs({
+			profile,
+			model: resolveSubagentModel(params.model, profile.model),
+			files,
+			promptFile,
+			cwd,
+		});
 
 		const envVars = [
 			`SUBAGENT_PARENT_PANE_ID=${shellQuote(parentPaneId)}`,
@@ -914,14 +1004,18 @@ export default function (pi: ExtensionAPI) {
 
 export {
 	assistantMessageText,
+	buildPiArgs,
 	buildSubagentLabel,
 	buildSubagentPrompt,
 	completionSummary,
 	ensureResultArtifact,
+	expandConfigPath,
 	extractJiraIssueKey,
 	folderName,
 	isDuplicateCompletion,
 	latestAssistantText,
+	mergeProfiles,
 	sanitizeLabel,
 	taskHeadline,
 };
+export type { SubagentProfile };

@@ -84,6 +84,36 @@ Or define a fully custom profile:
 
 Built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used when a profile is not defined in config.
 
+### Tool and skill scoping
+
+Profiles can restrict what a subagent session loads, keeping its context lean:
+
+| Field | Effect |
+|-------|--------|
+| `tools` | Allowlist passed as `--tools`. `subagent_notify` is always appended. |
+| `excludeTools` | Denylist passed as `--exclude-tools`. |
+| `skills` | Explicit skill paths; launches with `--no-skills` plus one `--skill` per entry. Empty array = no skills at all. Supports `~` and cwd-relative paths. |
+| `promptTemplates` | Explicit template paths; launches with `--no-prompt-templates` plus one `--prompt-template` per entry. |
+
+Fields left `undefined` keep pi's default discovery. Built-in defaults:
+
+- `reviewer` / `scout` — read-only tools (`read`, `bash`, `grep`, `find`, `ls`, `subagent_notify`), no skills, no prompt templates.
+- `coder` — full editing tools plus the `code_check*` tools; keeps the repo-local `check` and `tdd` skills when installed; no prompt templates.
+- `minimal` — `bash`, `read`, `subagent_notify` only.
+
+Example: give the coder a different model and add a custom skill (overriding `skills` replaces the built-in defaults, so re-add the package skills by absolute path if you want them):
+
+```json
+{
+  "subagents": {
+    "coder": {
+      "model": "openai:gpt-4o",
+      "skills": ["~/dev/pi-dev/skills/check", "~/dev/pi-dev/skills/tdd", "~/my-skills/conventional-commits"]
+    }
+  }
+}
+```
+
 ## Tools
 
 ### Herdr

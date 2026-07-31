@@ -11,8 +11,8 @@ The `subagent` tool is registered by this extension and routes every subagent in
 
 1. This extension registers the canonical `subagent` tool.
 2. Every `subagent` call launches an interactive `pi` session in a new Herdr tab or pane.
-3. A `profile` parameter selects a named configuration that defines model and layout (tab vs pane). Profiles can be defined or overridden in `~/.pi/agent/pi-dev.json` under the `subagents` key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used as defaults.
-4. A minimal profile only needs `name`, `layout`, and an optional `model`.
+3. A `profile` parameter selects a named configuration that defines model, layout (tab vs pane), and optional tool/skill scoping. Profiles can be defined or overridden in `~/.pi/agent/pi-dev.json` under the `subagents` key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used as defaults.
+4. A minimal profile only needs `name`, `layout`, and an optional `model`. Optional `tools`/`excludeTools` map to `--tools`/`--exclude-tools`; `skills` and `promptTemplates` disable discovery (`--no-skills`/`--no-prompt-templates`) and load only the listed paths. Scoping keeps subagent contexts lean and prevents subagents from spawning further subagents. `subagent_notify` is always appended to a `tools` allowlist so the completion protocol cannot be broken by configuration.
 5. The Herdr tab/pane label is derived from the task automatically (issue key, task headline, profile, and working directory), or can be overridden with a `title` parameter.
 6. The parent passes its Herdr pane ID, a result file path, a unique launch ID, and a notify socket path to the subagent. The result file is created in a temporary directory managed by `os.tmpdir()`/`fs.mkdtemp()`.
 7. The subagent writes its final result to the result file and may use `subagent_notify` for immediate delivery. Notification prefers a Unix socket via `SUBAGENT_NOTIFY_SOCKET`, falling back to Herdr pane notification if the socket is unavailable.
@@ -28,3 +28,4 @@ The `subagent` tool is registered by this extension and routes every subagent in
 - The parent session cannot synchronously `await` the result, but settled subagents notify it automatically.
 - Once collected, the parent should close the subagent pane/tab with `herdr_close` to keep the workspace tidy.
 - Skills and prompts that mention subagents will naturally route through this tool once it is registered.
+- Built-in profiles are read-only by default (`reviewer`, `scout`) or editing-scoped (`coder`); the allowlist excludes `subagent`/`Agent`/`herdr_handoff`, so nesting is impossible unless a profile explicitly opts back in by leaving `tools` undefined.

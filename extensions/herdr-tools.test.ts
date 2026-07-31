@@ -4,14 +4,17 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
 	assistantMessageText,
+	buildPiArgs,
 	buildSubagentLabel,
 	buildSubagentPrompt,
 	completionSummary,
 	ensureResultArtifact,
+	expandConfigPath,
 	extractJiraIssueKey,
 	folderName,
 	isDuplicateCompletion,
 	latestAssistantText,
+	mergeProfiles,
 	resolveSubagentModel,
 	sanitizeLabel,
 	taskHeadline,
@@ -145,6 +148,111 @@ describe("folderName", () => {
 	it("returns undefined when the folder is the same as cwd", () => {
 		vi.spyOn(process, "cwd").mockReturnValue("/home/user/project");
 		expect(folderName("/home/user/project")).toBeUndefined();
+	});
+});
+
+describe("mergeProfiles", () => {
+	it("overrides fields field-by-field, keeping base values otherwise", () => {
+		const merged = mergeProfiles(
+			{ name: "coder", layout: "tab", tools: ["read", "bash"], skills: [] },
+			{ model: "openai:gpt-4o" },
+		);
+		expect(merged).toEqual({
+			name: "coder",
+			layout: "tab",
+			tools: ["read", "bash"],
+			skills: [],
+			model: "openai:gpt-4o",
+		});
+	});
+
+	it("lets an override clear tools with an explicit allowlist", () => {
+		const merged = mergeProfiles(
+			{ name: "coder", tools: ["read", "bash"] },
+			{ tools: ["read"] },
+		);
+		expect(merged.tools).toEqual(["read"]);
+	});
+});
+
+describe("expandConfigPath", () => {
+	it("expands a leading tilde", () => {
+		expect(expandConfigPath("~/skills/check", "/repo")).toBe(`${process.env.HOME}/skills/check`);
+	});
+
+	it("resolves relative paths against the cwd", () => {
+		expect(expandConfigPath("skills/check", "/repo")).toBe("/repo/skills/check");
+	});
+
+	it("keeps absolute paths", () => {
+		expect(expandConfigPath("/opt/skills/x", "/repo")).toBe("/opt/skills/x");
+	});
+});
+
+describe("buildPiArgs", () => {
+	it("passes --tools with subagent_notify appended when missing", () => {
+		const args = buildPiArgs({
+			profile: { name: "scout", tools: ["read", "bash"], skills: [], promptTemplates: [] },
+			files: [],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args).toContain("--tools");
+		expect(args[args.indexOf("--tools") + 1]).toBe("read,bash,subagent_notify");
+		expect(args).toContain("--no-skills");
+		expect(args).toContain("--no-prompt-templates");
+		expect(args.at(-1)).toBe("@/tmp/prompt.md");
+	});
+
+	it("does not duplicate subagent_notify when already allowed", () => {
+		const args = buildPiArgs({
+			profile: { name: "coder", tools: ["bash", "subagent_notify"] },
+			files: [],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args[args.indexOf("--tools") + 1]).toBe("bash,subagent_notify");
+	});
+
+	it("passes explicit skills and prompt templates with resolved paths", () => {
+		const args = buildPiArgs({
+			profile: {
+				name: "coder",
+				skills: ["skills/check"],
+				promptTemplates: ["~/prompts/tdd.md"],
+			},
+			files: [],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args).toContain("--no-skills");
+		expect(args).toContain("--skill");
+		expect(args[args.indexOf("--skill") + 1]).toBe("/repo/skills/check");
+		expect(args).toContain("--no-prompt-templates");
+		expect(args).toContain("--prompt-template");
+		expect(args[args.indexOf("--prompt-template") + 1]).toBe(`${process.env.HOME}/prompts/tdd.md`);
+	});
+
+	it("omits tool/skill flags when the profile leaves them undefined", () => {
+		const args = buildPiArgs({
+			profile: { name: "custom" },
+			model: "openai:gpt-4o",
+			files: ["/repo/a.ts"],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args).toEqual(["--model", "openai:gpt-4o", "@/repo/a.ts", "@/tmp/prompt.md"]);
+	});
+
+	it("passes --exclude-tools when configured", () => {
+		const args = buildPiArgs({
+			profile: { name: "coder", excludeTools: ["write", "edit"] },
+			files: [],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args).toContain("--exclude-tools");
+		expect(args[args.indexOf("--exclude-tools") + 1]).toBe("write,edit");
 	});
 });
 
