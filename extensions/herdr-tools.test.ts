@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	assistantMessageText,
 	buildPiArgs,
+	buildPiLaunchArgs,
 	buildSubagentLabel,
 	buildSubagentPrompt,
 	completionSummary,
@@ -74,6 +75,17 @@ describe("subagent completion", () => {
 	it("uses the first response line as a bounded summary", () => {
 		expect(completionSummary("Completed the task\nMore detail", "fallback")).toBe("Completed the task");
 		expect(completionSummary(undefined, "fallback")).toBe("fallback");
+	});
+});
+
+describe("buildPiLaunchArgs", () => {
+	it("always approves project trust for launched sessions", () => {
+		expect(buildPiLaunchArgs()).toEqual(["--approve"]);
+		expect(buildPiLaunchArgs("openai-codex/gpt-5.6-sol")).toEqual([
+			"--approve",
+			"--model",
+			"openai-codex/gpt-5.6-sol",
+		]);
 	});
 });
 
@@ -241,7 +253,7 @@ describe("buildPiArgs", () => {
 			promptFile: "/tmp/prompt.md",
 			cwd: "/repo",
 		});
-		expect(args).toEqual(["--model", "openai:gpt-4o", "@/repo/a.ts", "@/tmp/prompt.md"]);
+		expect(args).toEqual(["--approve", "--model", "openai:gpt-4o", "@/repo/a.ts", "@/tmp/prompt.md"]);
 	});
 
 	it("passes --exclude-tools when configured", () => {

@@ -132,6 +132,10 @@ export function resolveSubagentModel(explicitModel?: string, profileModel?: stri
 	return explicitModel?.trim() || profileModel?.trim() || undefined;
 }
 
+export function buildPiLaunchArgs(model?: string): string[] {
+	return ["--approve", ...(model ? ["--model", model] : [])];
+}
+
 /** Expand a leading `~` and resolve relative paths against the subagent cwd. */
 function expandConfigPath(path: string, cwd: string): string {
 	const expanded = path === "~" ? homedir() : path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
@@ -147,8 +151,7 @@ function buildPiArgs(params: {
 	cwd: string;
 }): string[] {
 	const { profile, model, files, promptFile, cwd } = params;
-	const args: string[] = [];
-	if (model) args.push("--model", model);
+	const args = buildPiLaunchArgs(model);
 	if (profile.tools) {
 		const tools = profile.tools.includes("subagent_notify")
 			? profile.tools
@@ -855,16 +858,13 @@ export default function (pi: ExtensionAPI) {
 				const promptFile = resolve(promptDir, "prompt.md");
 				await writeFile(promptFile, params.prompt, "utf8");
 
-				const piArgs: string[] = [];
-				if (params.model) {
-					piArgs.push("--model", shellQuote(params.model));
-				}
+				const piArgs = buildPiLaunchArgs(params.model);
 				for (const file of files) {
-					piArgs.push(shellQuote(`@${file}`));
+					piArgs.push(`@${file}`);
 				}
-				piArgs.push(shellQuote(`@${promptFile}`));
+				piArgs.push(`@${promptFile}`);
 
-				const command = `cd ${shellQuote(cwd)} && pi ${piArgs.join(" ")}`;
+				const command = `cd ${shellQuote(cwd)} && pi ${piArgs.map(shellQuote).join(" ")}`;
 				await runInPane(container.paneId, command);
 
 				return {

@@ -124,18 +124,27 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 | `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane. |
 | `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
+| `herdr_start` | Create a pane and run any shell command with optional focus and zoom. |
+| `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
 
 `subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. Labels are capped at 32 characters. If omitted, a compact label is derived from the task, profile, and working-directory folder. Example: `ITA-123 fix… [coder/auth]`.
 
+`subagent` and `herdr_handoff` launch Pi with `--approve`, so isolated worktrees load their project-local resources without blocking on an interactive trust prompt. This approval applies only to the launched session.
+
+`worktrunk` supports `create`, `list`, and `remove`. Creation waits for approved Worktrunk lifecycle hooks, allowing `.worktreeinclude` files to select ignored local state such as `.env*`, `.eslintcache`, and `node_modules/` for copying.
+
 Completion notification is harness-owned. A subagent may call `subagent_notify` for immediate delivery, but an `agent_settled` hook automatically creates a missing result artifact and notifies the parent if the model forgets. Each launch has a unique ID, so explicit and automatic notifications are deduplicated. Graceful early exits report a failed completion.
 
-### tuicr
+### Code review
 
 | Tool | Purpose |
 |------|---------|
 | `tuicr_review` | Open a pinned local diff in a focused Herdr pane, read its comments, and close the owned pane. |
+| `diffview_review` | Open a pinned local diff in Neovim Diffview in a focused Herdr pane. |
 
 `tuicr_review` supports `open`, `comments`, and `close`. `open` resolves the Git merge base and HEAD to immutable commit SHAs before launching tuicr. Empty comments never imply approval.
+
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"`. The user returns with comments and manages the pane themselves.
 
 ### Jira
 
