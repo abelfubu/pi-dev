@@ -1,16 +1,32 @@
-import { readFile, unlink } from "node:fs/promises";
+import { access, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { finalizeCheckResult } from "../outcome.js";
 import { runCommand, type RunResult } from "../runner.js";
 import type { CheckItem, CheckResult } from "../types.js";
+
+export async function resolveVitestTarget(cwd: string, path?: string): Promise<string | undefined> {
+  if (!path || /\.(test|spec)\.[cm]?[jt]sx?$/.test(path)) return path;
+
+  const extension = extname(path);
+  if (!extension) return path;
+
+  const candidate = join(dirname(path), `${basename(path, extension)}.test${extension}`);
+  try {
+    await access(resolve(cwd, candidate));
+    return candidate;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function runVitest(
   cwd: string,
   path?: string,
   override?: string
 ): Promise<CheckResult> {
-  const target = path ? JSON.stringify(path) : "";
+  const targetPath = await resolveVitestTarget(cwd, path);
+  const target = targetPath ? JSON.stringify(targetPath) : "";
   let outputFile: string | undefined;
   let command: string;
 

@@ -67,10 +67,10 @@ describe("diffview_review tool", () => {
     expect(mocks.zoomHerdrPane).toHaveBeenCalledWith("pane-1", true);
     expect(mocks.runInPane).toHaveBeenCalledWith(
       "pane-1",
-      "nvim -c 'DiffviewOpen merge-sha..head-sha'; herdr pane close --current",
+      "exec nvim -c 'DiffviewOpen merge-sha..head-sha' -c 'autocmd VimLeavePre * call jobstart(['herdr', 'pane', 'close', '--current'], {'detach': v:true})'",
     );
     expect(result.content[0].text).toContain("Pinned diff: merge-sha..head-sha");
-    expect(result.content[0].text).toContain("close automatically");
+    expect(result.content[0].text).toContain("pane closes when Neovim exits");
   });
 
   it("does not close the pane when Neovim launch fails", async () => {
