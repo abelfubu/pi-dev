@@ -144,7 +144,7 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 `tuicr_review` supports `open`, `comments`, and `close`. `open` resolves the Git merge base and HEAD to immutable commit SHAs before launching tuicr. Empty comments never imply approval.
 
-`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"`. The user returns with comments and manages the pane themselves.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"; herdr pane close --current`. The pane closes automatically when the user exits Neovim.
 
 ### Jira
 

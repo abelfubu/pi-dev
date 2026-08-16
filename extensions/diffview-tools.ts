@@ -35,7 +35,7 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
     description: "Open an exact local diff in Neovim Diffview in a focused Herdr pane.",
     promptSnippet: "Open a deterministic local diff in Neovim Diffview",
     promptGuidelines: [
-      "Use diffview_review when the user wants to review in Neovim. The user will return with review comments and manages the pane themselves.",
+      "Use diffview_review when the user wants to review in Neovim. The review pane closes automatically when the user exits Neovim.",
     ],
     executionMode: "sequential",
     parameters,
@@ -47,7 +47,7 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
       if (!pane.paneId) throw new Error("Herdr did not return a pane ID.");
 
       await zoomHerdrPane(pane.paneId, true);
-      const command = `nvim -c ${shellQuote(`DiffviewOpen ${target.revisions}`)}`;
+      const command = `nvim -c ${shellQuote(`DiffviewOpen ${target.revisions}`)}; herdr pane close --current`;
       await runInPane(pane.paneId, command);
 
       return {
@@ -57,7 +57,7 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
             text: [
               `Opened Neovim Diffview in pane ${pane.paneId}.`,
               `Pinned diff: ${target.mergeBaseSha}..${target.headSha}.`,
-              "The user will return with review comments and manage the pane.",
+              "The pane will close automatically when the user exits Neovim.",
             ].join("\n"),
           },
         ],
