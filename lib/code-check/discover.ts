@@ -1,59 +1,78 @@
-import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { loadConfig } from "../config.js";
-import type { ToolName } from "./types.js";
+import { loadConfig, type CodeCheckCommandConfig } from "../config.js";
+import type { CheckDefinition } from "./types.js";
+
+const KNOWN_PACKAGE_SCRIPTS = ["check", "lint", "typecheck", "test"] as const;
 
 export interface DiscoverResult {
-  available: ToolName[];
-  overrides: Record<ToolName, string | undefined>;
+  checks: CheckDefinition[];
 }
 
 export async function discoverCodeChecks(cwd: string): Promise<DiscoverResult> {
   const config = await loadConfig(cwd);
-  const overrides: Record<ToolName, string | undefined> = {
-    eslint: config.codeChecks?.eslint,
-    tsc: config.codeChecks?.tsc,
-    vitest: config.codeChecks?.vitest,
-    cargo_check: config.codeChecks?.cargo_check,
-    cargo_clippy: config.codeChecks?.cargo_clippy,
-    cargo_test: config.codeChecks?.cargo_test,
-  };
+  const configured = config.codeChecks;
+  if (configured && Object.keys(configured).length > 0) {
+    return {
+      checks: Object.entries(configured).flatMap(([name, value]) => {
+        const command = configuredCommand(value);
+        return command ? [{ name, command, source: "config" as const }] : [];
+      }),
+    };
+  }
 
+  const checks: CheckDefinition[] = [];
   const pkg = await readPackageJson(cwd);
-  const deps = pkg ? collectDeps(pkg) : new Set<string>();
+  if (pkg) {
+    const scripts = isRecord(pkg.scripts) ? pkg.scripts : {};
+    const run = packageScriptRunner(cwd, pkg);
+    for (const name of KNOWN_PACKAGE_SCRIPTS) {
+      if (typeof scripts[name] === "string") {
+        checks.push({ name, command: `${run} ${name}`, source: "package.json" });
+      }
+    }
+  }
 
-  const available: ToolName[] = [];
-  if (overrides.eslint || deps.has("eslint")) available.push("eslint");
-  if (overrides.tsc || deps.has("typescript") || existsSync(join(cwd, "tsconfig.json"))) available.push("tsc");
-  if (overrides.vitest || deps.has("vitest")) available.push("vitest");
-  if (overrides.cargo_check || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_check");
-  if (overrides.cargo_clippy || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_clippy");
-  if (overrides.cargo_test || existsSync(join(cwd, "Cargo.toml"))) available.push("cargo_test");
+  if (existsSync(join(cwd, "Cargo.toml"))) {
+    checks.push(
+      { name: "cargo-check", command: "cargo check --all-targets", source: "cargo" },
+      { name: "cargo-clippy", command: "cargo clippy --all-targets", source: "cargo" },
+      { name: "cargo-test", command: "cargo test --all-targets", source: "cargo" },
+    );
+  }
 
-  return { available, overrides };
+  return { checks };
+}
+
+function configuredCommand(value: CodeCheckCommandConfig | string): string | undefined {
+  if (typeof value === "string") return value.trim() || undefined;
+  return value?.command?.trim() || undefined;
 }
 
 async function readPackageJson(cwd: string): Promise<Record<string, unknown> | null> {
   const path = join(cwd, "package.json");
   if (!existsSync(path)) return null;
   try {
-    const text = await readFile(path, "utf8");
-    return JSON.parse(text) as Record<string, unknown>;
+    return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
-function collectDeps(pkg: Record<string, unknown>): Set<string> {
-  const deps = new Set<string>();
-  for (const key of ["dependencies", "devDependencies", "peerDependencies"]) {
-    const section = pkg[key];
-    if (section && typeof section === "object") {
-      for (const name of Object.keys(section as Record<string, unknown>)) {
-        deps.add(name);
-      }
-    }
+function packageScriptRunner(cwd: string, pkg: Record<string, unknown>): string {
+  const declared = typeof pkg.packageManager === "string"
+    ? pkg.packageManager.split("@")[0]
+    : undefined;
+
+  if (declared === "pnpm" || existsSync(join(cwd, "pnpm-lock.yaml"))) return "pnpm run";
+  if (declared === "yarn" || existsSync(join(cwd, "yarn.lock"))) return "yarn run";
+  if (declared === "bun" || existsSync(join(cwd, "bun.lock")) || existsSync(join(cwd, "bun.lockb"))) {
+    return "bun run";
   }
-  return deps;
+  return "npm run";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

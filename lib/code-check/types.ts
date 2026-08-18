@@ -1,22 +1,22 @@
-export type ToolName = "eslint" | "tsc" | "vitest" | "cargo_check" | "cargo_clippy" | "cargo_test";
+export type CheckSource = "config" | "package.json" | "cargo";
 export type FailureKind = "execution" | "timeout";
 
+export interface CheckDefinition {
+  name: string;
+  command: string;
+  source: CheckSource;
+}
+
 export interface CheckItem {
-  file?: string;
-  line?: number;
-  column?: number;
   message: string;
-  severity?: "error" | "warning";
 }
 
 export interface CheckResult {
-  tool: ToolName;
+  name: string;
+  command: string;
   pass: boolean;
-  errors: number;
-  warnings: number;
+  exitCode: number;
   items: CheckItem[];
-  raw?: string;
-  command?: string;
-  exitCode?: number;
+  outputFile?: string;
   failureKind?: FailureKind;
 }

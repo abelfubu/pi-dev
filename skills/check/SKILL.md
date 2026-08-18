@@ -1,40 +1,39 @@
 ---
 name: check
-description: Use when the user wants to run code checks (eslint, tsc, vitest, cargo) efficiently, verify a change before committing, or when another skill needs a concise check summary.
+description: Use when the user wants to run code checks efficiently, verify a change before committing, or when another skill needs a concise check summary.
 ---
 
 ## Leading word: **verify**
 
-Run checks to verify local changes without wasting tokens. The `code_check_*` tools are faster and return smaller outputs than raw `bash`.
+Run repository-owned verification commands without wasting tokens. The tools summarize output while preserving the command exit code as the authoritative outcome.
 
 ## Process
 
-1. **Run directly.** Call `code_check_parallel`; it discovers available checks itself. Use `code_check_discover` only when you need to inspect availability.
-2. **Run after edits.** After any batch of code changes that could affect types, lint, or tests, call `code_check_parallel`.
-3. **Single checks.** If you only need one check, use `code_check` with `name` set to one of `eslint`, `tsc`, `vitest`, `cargo_check`, `cargo_clippy`, or `cargo_test`.
-4. **No duplicate checks.** Treat a successful tool result as authoritative. Do not rerun an equivalent npm, npx, or cargo command.
-5. **Raw fallback.** Use raw commands only for unsupported checks, tool execution failures, or diagnostics omitted by a failing summary.
-6. **Show only summaries.** Do not print full command output to the user; the tool already returns a concise summary.
-7. **Completion:** The summary is shown and any failures are surfaced with the tool name, error count, and the first three error messages.
+1. **Inspect when needed.** Call `code_check_list` when you need to see the available repository checks.
+2. **Run directly.** Call `code_check`; omit `names` to run every discovered check sequentially, or select only relevant names.
+3. **Run after edits.** Verify changes that could affect types, lint, or tests.
+4. **No duplicate checks.** Do not rerun a successful equivalent command.
+5. **Raw fallback.** Use raw commands only for unsupported checks, execution failures, or diagnostics omitted by a failing summary.
+6. **Show only summaries.** Do not print full command output to the user.
 
-## Conventions
+## Discovery
 
-- Pass `path` to scope the check. TypeScript tools (`eslint`, `tsc`, `vitest`) run project-wide and filter results by the given path. Rust tools (`cargo_check`, `cargo_clippy`, `cargo_test`) also run project-wide and filter results by the given path.
-- If all checks pass, output is one line per tool.
-- If checks fail, output shows the tool name, error count, and the first three error messages.
-- A project can override the command for each tool in `.pi/pi-dev.json`:
+Without configuration, checks come only from repository-owned commands:
 
-  ```json
-  {
-    "codeChecks": {
-      "eslint": "npm run lint:strict",
-      "vitest": "npm run test:unit",
-      "tsc": "npm run typecheck",
-      "cargo_check": "cargo check --all-targets --message-format=json",
-      "cargo_clippy": "cargo clippy --all-targets --message-format=json",
-      "cargo_test": "cargo test --all-targets --message-format=json"
-    }
+- Exact `check`, `lint`, `typecheck`, and `test` scripts in the root `package.json`.
+- Cargo checks when a root `Cargo.toml` exists.
+
+Installed dependencies alone never imply a valid check. Package scripts are run through the package manager declared by `packageManager` or identified by its lockfile. This supports Turbo and other task runners because the repository script remains in control.
+
+`.pi/pi-dev.json` is optional. Use it only to replace auto-discovery with arbitrary named commands:
+
+```json
+{
+  "codeChecks": {
+    "verify": "pnpm turbo run lint typecheck test",
+    "smoke": { "command": "./scripts/smoke" }
   }
-  ```
+}
+```
 
-  The override command is run as-is; it should produce output that the tool can parse, or the result will be a raw text summary.
+Paths are never appended to commands and diagnostics never turn a non-zero exit into a pass.

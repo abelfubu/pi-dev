@@ -28,20 +28,18 @@ pi install git:github.com/abelfubu/pi-dev
 
 ### codeChecks
 
-The `codeChecks` key overrides auto-discovered commands:
+The `codeChecks` key optionally replaces auto-discovery with arbitrary repository commands:
 
 ```json
 {
   "codeChecks": {
-    "eslint": "npm run lint:strict",
-    "vitest": "npm run test:unit",
-    "tsc": "npm run typecheck",
-    "cargo_check": "cargo check --all-targets --message-format=json",
-    "cargo_clippy": "cargo clippy --all-targets --message-format=json",
-    "cargo_test": "cargo test --all-targets --message-format=json"
+    "verify": "pnpm turbo run lint typecheck test",
+    "smoke": { "command": "./scripts/smoke" }
   }
 }
 ```
+
+Without configuration, exact `check`, `lint`, `typecheck`, and `test` scripts are discovered from the root `package.json` and run through the repository's package manager. Root Cargo projects also expose check, clippy, and test commands. Installed dependencies alone are not treated as checks.
 
 ### subagentDefaults
 
@@ -166,13 +164,10 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 | Tool | Purpose |
 |------|---------|
-| `code_check` | Run a single check (eslint, tsc, vitest, cargo_check, cargo_clippy, cargo_test) |
-| `code_check_discover` | Detect available checks in the project |
-| `code_check_parallel` | Run selected checks in parallel |
+| `code_check_list` | List discovered repository-owned checks and their commands |
+| `code_check` | Run selected checks sequentially, or all checks when none are selected |
 
-Only the checks relevant to the current project are accepted by the `code_check` tool's `name` parameter. `code_check_discover` and `code_check_parallel` are always available. `code_check_parallel` performs discovery automatically, so agents normally call it directly.
-
-Treat successful code-check results as authoritative instead of rerunning equivalent npm, npx, or cargo commands. Raw commands are fallbacks for unsupported checks, execution failures, or additional diagnostics after a failure. Result details include the executed command and exit code.
+Checks use repository scripts rather than inferred tool invocations, so Turbo, Nx, and other task runners remain in control of scheduling and caching. Pass or failure always comes from the command exit code. The agent receives only a concise summary and structured result. Full failing output is saved to a temporary file for inspection only when needed. Raw commands are fallbacks for unsupported checks or additional diagnostics.
 
 ## Skills
 

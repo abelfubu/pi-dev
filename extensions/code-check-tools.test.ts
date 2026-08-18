@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,10 +7,7 @@ import registerExtension from "./code-check-tools.js";
 
 interface ToolDef {
   name: string;
-  label: string;
-  description: string;
-  parameters: unknown;
-  execute: unknown;
+  execute: (...args: any[]) => Promise<any>;
 }
 
 type MockPi = ExtensionAPI & { tools: ToolDef[] };
@@ -49,48 +46,33 @@ describe("code-check-tools extension", () => {
     process.chdir(originalCwd);
   });
 
-  it("registers only Node checks in a TypeScript/Node project", async () => {
-    await writeFile(
-      join(tmpDir, "package.json"),
-      JSON.stringify({ devDependencies: { typescript: "^5", vitest: "^2" } })
-    );
-    await writeFile(join(tmpDir, "tsconfig.json"), "{}");
-
+  it("always registers only the generic list and run tools", async () => {
     const pi = createMockPi();
     await registerExtension(pi);
-    const names = pi.tools.map((t: ToolDef) => t.name).sort();
 
-    expect(names).toContain("code_check");
-    expect(names).toContain("code_check_discover");
-    expect(names).toContain("code_check_parallel");
-    expect(names).not.toContain("code_check_cargo_check");
-    expect(names).not.toContain("code_check_cargo_clippy");
-    expect(names).not.toContain("code_check_cargo_test");
+    expect(pi.tools.map((tool) => tool.name).sort()).toEqual(["code_check", "code_check_list"]);
   });
 
-  it("registers only Rust checks in a Cargo project", async () => {
-    await writeFile(
-      join(tmpDir, "Cargo.toml"),
-      "[package]\nname = \"x\"\nversion = \"0.1.0\"\n"
-    );
-
+  it("lists zero-config package scripts", async () => {
+    await writeFile(join(tmpDir, "package.json"), JSON.stringify({ scripts: { typecheck: "turbo run typecheck" } }));
     const pi = createMockPi();
     await registerExtension(pi);
-    const names = pi.tools.map((t: ToolDef) => t.name).sort();
+    const tool = pi.tools.find((candidate) => candidate.name === "code_check_list")!;
 
-    expect(names).toContain("code_check");
-    expect(names).toContain("code_check_discover");
-    expect(names).toContain("code_check_parallel");
-    expect(names).not.toContain("code_check_tsc");
-    expect(names).not.toContain("code_check_vitest");
-    expect(names).not.toContain("code_check_eslint");
+    const result = await tool.execute("id", {}, undefined, undefined, { cwd: tmpDir });
+
+    expect(result.content[0].text).toContain("typecheck: npm run typecheck");
   });
 
-  it("registers no individual checks when the project has no recognized checks", async () => {
+  it("rejects unknown checks", async () => {
+    await writeFile(join(tmpDir, "package.json"), JSON.stringify({ scripts: { test: "vitest" } }));
     const pi = createMockPi();
     await registerExtension(pi);
-    const names = pi.tools.map((t: ToolDef) => t.name).sort();
+    const tool = pi.tools.find((candidate) => candidate.name === "code_check")!;
 
-    expect(names).toEqual(["code_check_discover", "code_check_parallel"]);
+    const result = await tool.execute("id", { names: ["lint"] }, undefined, undefined, { cwd: tmpDir });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Unknown code checks: lint");
   });
 });

@@ -49,8 +49,7 @@ const CODER_TOOLS = [
 	"find",
 	"ls",
 	"code_check",
-	"code_check_discover",
-	"code_check_parallel",
+	"code_check_list",
 	"subagent_notify",
 ];
 
