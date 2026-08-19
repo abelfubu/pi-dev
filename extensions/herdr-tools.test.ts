@@ -6,6 +6,7 @@ import {
 	assistantMessageText,
 	buildPiArgs,
 	buildPiLaunchArgs,
+	buildPiLaunchScript,
 	buildSubagentLabel,
 	buildSubagentPrompt,
 	completionSummary,
@@ -33,6 +34,25 @@ describe("subagent completion", () => {
 
 		expect(prompt).toContain("Launch ID: launch-123");
 		expect(prompt).toContain("launch_id: launch-123");
+	});
+
+	it("renders a coder implementation plan before the task", () => {
+		const prompt = buildSubagentPrompt({
+			task: "Implement the change",
+			profile: "coder",
+			implementationPlan: {
+				intent: "Prevent truncated launches.",
+				modifications: ["extensions/herdr-tools.ts — buildPiArgs — launch from a script"],
+				additions: ["launch.sh — disk-backed Pi invocation"],
+			},
+			parentPaneId: "parent-pane",
+			resultFile: "/tmp/result.md",
+			launchId: "launch-123",
+		});
+
+		expect(prompt.indexOf("## Implementation plan")).toBeLessThan(prompt.indexOf("## Task"));
+		expect(prompt).toContain("### Intent\nPrevent truncated launches.");
+		expect(prompt).toContain("- extensions/herdr-tools.ts — buildPiArgs — launch from a script");
 	});
 
 	it("extracts the latest assistant text from session entries", () => {
@@ -86,6 +106,34 @@ describe("buildPiLaunchArgs", () => {
 			"--model",
 			"openai-codex/gpt-5.6-sol",
 		]);
+	});
+});
+
+describe("buildPiLaunchScript", () => {
+	it("puts cwd, environment, and every pi argument in a disk-backed script", () => {
+		const script = buildPiLaunchScript({
+			cwd: "/repo with spaces",
+			env: { SUBAGENT_LAUNCH_ID: "launch 123" },
+			args: ["--approve", "@/tmp/a file.md", "task with 'quotes'"],
+		});
+
+		expect(script).toContain("set -euo pipefail");
+		expect(script).toContain("cd '/repo with spaces'");
+		expect(script).toContain("export SUBAGENT_LAUNCH_ID='launch 123'");
+		expect(script).toContain("exec pi \\");
+		expect(script).toContain("  '@/tmp/a file.md' \\");
+		expect(script).toContain("  'task with '\\''quotes'\\'''\n");
+	});
+
+	it("keeps large argument lists out of the terminal command", () => {
+		const launchFile = "/tmp/pi-subagent-123/launch.sh";
+		const terminalCommand = `bash ${launchFile}`;
+		const args = Array.from({ length: 1_000 }, (_, index) => `@/repo/file-${index}.ts`);
+		const script = buildPiLaunchScript({ cwd: "/repo", env: {}, args });
+
+		expect(terminalCommand).toBe("bash /tmp/pi-subagent-123/launch.sh");
+		expect(terminalCommand).not.toContain("file-999.ts");
+		expect(script).toContain("@/repo/file-999.ts");
 	});
 });
 

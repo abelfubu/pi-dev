@@ -19,11 +19,15 @@ The `subagent` tool is registered by this extension and routes every subagent in
 8. Completion does not depend on the model remembering the tool call. On `agent_settled`, the extension creates a missing artifact from the latest assistant response and automatically notifies the parent. Graceful exits before settlement emit a failed notification.
 9. Explicit and automatic notifications carry the launch ID. The parent acknowledges duplicate delivery without injecting a second completion message.
 10. Every subagent is created in the invoking parent's Herdr workspace. Tab profiles pass the parent's workspace ID explicitly; pane profiles split the parent's pane explicitly. Neither path relies on the workspace or pane currently focused in the Herdr UI.
-11. No extra global token caps are enforced.
+11. The complete Pi invocation is written to a temporary Bash script. Herdr injects only the short command that executes that script, preventing terminal command-line truncation when a launch contains many file arguments. The same mechanism is used by `herdr_handoff`.
+12. Every `coder` launch requires a structured implementation plan stating intent, modifications, and additions. It is rendered before the task so implementation starts from an explicit file-and-symbol-level contract.
+13. No extra global token caps are enforced.
 
 ## Consequences
 
 - Subagent work is visible and debuggable in Herdr.
+- Launch command length no longer depends on the number or length of attached file paths.
+- Coder callers must provide an implementation plan; read-only profiles do not require one.
 - Changing the focused Herdr workspace cannot redirect a subagent away from its parent.
 - The parent session cannot synchronously `await` the result, but settled subagents notify it automatically.
 - Once collected, the parent should close the subagent pane/tab with `herdr_close` to keep the workspace tidy.

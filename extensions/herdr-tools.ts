@@ -34,6 +34,12 @@ interface SubagentProfile {
 	promptTemplates?: string[];
 }
 
+interface ImplementationPlan {
+	intent: string;
+	modifications: string[];
+	additions: string[];
+}
+
 // Resolve the repo-local check and tdd skills so the coder profile keeps its
 // workflow guidance even when skill discovery is disabled. Omitted when not installed.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -133,6 +139,28 @@ export function resolveSubagentModel(explicitModel?: string, profileModel?: stri
 
 export function buildPiLaunchArgs(model?: string): string[] {
 	return ["--approve", ...(model ? ["--model", model] : [])];
+}
+
+/** Build a disk-backed Pi invocation so Herdr only injects a short command. */
+function buildPiLaunchScript(params: {
+	cwd: string;
+	env: Record<string, string>;
+	args: string[];
+}): string {
+	const lines = [
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"",
+		`cd ${shellQuote(params.cwd)}`,
+	];
+	for (const [name, value] of Object.entries(params.env)) {
+		lines.push(`export ${name}=${shellQuote(value)}`);
+	}
+	lines.push("", "exec pi \\");
+	params.args.forEach((arg, index) => {
+		lines.push(`  ${shellQuote(arg)}${index < params.args.length - 1 ? " \\" : ""}`);
+	});
+	return `${lines.join("\n")}\n`;
 }
 
 /** Expand a leading `~` and resolve relative paths against the subagent cwd. */
@@ -455,11 +483,29 @@ async function notifySubagentParent(params: {
 function buildSubagentPrompt(params: {
 	task: string;
 	profile: string;
+	implementationPlan?: ImplementationPlan;
 	parentPaneId: string;
 	resultFile: string;
 	launchId: string;
 }): string {
+	const plan = params.implementationPlan;
+	const planSection = plan
+		? [
+			`## Implementation plan`,
+			``,
+			`### Intent`,
+			plan.intent,
+			``,
+			`### Modifications`,
+			...(plan.modifications.length ? plan.modifications.map((item) => `- ${item}`) : [`- None`]),
+			``,
+			`### Additions`,
+			...(plan.additions.length ? plan.additions.map((item) => `- ${item}`) : [`- None`]),
+			``,
+		]
+		: [];
 	return [
+		...planSection,
 		`## Task`,
 		params.task,
 		``,
@@ -486,6 +532,17 @@ const SubagentParams = Type.Object({
 	task: Type.String({
 		description: "Markdown task for the subagent",
 	}),
+	implementationPlan: Type.Optional(
+		Type.Object({
+			intent: Type.String({ description: "Why the change exists and what behavior it should produce" }),
+			modifications: Type.Array(Type.String(), {
+				description: "Existing files and interfaces/functions/symbols to modify, with the intended change",
+			}),
+			additions: Type.Array(Type.String(), {
+				description: "Files and interfaces/functions/symbols to add, with their purpose",
+			}),
+		}, { description: "Required for the coder profile; rendered before the task" }),
+	),
 	title: Type.Optional(
 		Type.String({
 			description: "Optional descriptive title for the Herdr pane or tab. If omitted, a title is derived from the task, profile, and working directory.",
@@ -603,6 +660,7 @@ async function executeSubagent(
 	params: {
 		profile: string;
 		task: string;
+		implementationPlan?: ImplementationPlan;
 		title?: string;
 		files?: string[];
 		cwd?: string;
@@ -620,6 +678,10 @@ async function executeSubagent(
 			return errorResult(
 				`Unknown profile: ${params.profile}. Available: ${Object.keys(profiles).join(", ")}.`,
 			);
+		}
+
+		if (params.profile === "coder" && !params.implementationPlan) {
+			return errorResult("The coder profile requires an implementationPlan with intent, modifications, and additions.");
 		}
 
 		const files = (params.files ?? []).map((f) => resolve(cwd, f));
@@ -652,6 +714,7 @@ async function executeSubagent(
 			buildSubagentPrompt({
 				task: params.task,
 				profile: profile.name,
+				implementationPlan: params.implementationPlan,
 				parentPaneId,
 				resultFile,
 				launchId,
@@ -684,14 +747,18 @@ async function executeSubagent(
 			cwd,
 		});
 
-		const envVars = [
-			`SUBAGENT_PARENT_PANE_ID=${shellQuote(parentPaneId)}`,
-			`SUBAGENT_RESULT_FILE=${shellQuote(resultFile)}`,
-			`SUBAGENT_LAUNCH_ID=${shellQuote(launchId)}`,
-			...(socketPath ? [`SUBAGENT_NOTIFY_SOCKET=${shellQuote(socketPath)}`] : []),
-		].join(" ");
-		const command = `cd ${shellQuote(cwd)} && ${envVars} pi ${piArgs.map(shellQuote).join(" ")}`;
-		await runInPane(container.paneId, command);
+		const launchFile = resolve(resultDir, "launch.sh");
+		await writeFile(launchFile, buildPiLaunchScript({
+			cwd,
+			env: {
+				SUBAGENT_PARENT_PANE_ID: parentPaneId,
+				SUBAGENT_RESULT_FILE: resultFile,
+				SUBAGENT_LAUNCH_ID: launchId,
+				...(socketPath ? { SUBAGENT_NOTIFY_SOCKET: socketPath } : {}),
+			},
+			args: piArgs,
+		}), "utf8");
+		await runInPane(container.paneId, `bash ${shellQuote(launchFile)}`);
 
 		return {
 			content: [
@@ -699,7 +766,7 @@ async function executeSubagent(
 					? `Subagent **${profile.name}** launched in tab **${container.tabId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`
 					: `Subagent **${profile.name}** launched in pane **${container.paneId}** (${label}). Result will be written to ${resultFile}; it will call \`subagent_notify\` when done.`),
 			],
-			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, socketPath, launchId },
+			details: { profile: profile.name, workspace: parentWorkspaceId, pane: container.paneId, tab: container.tabId, resultFile, promptFile, launchFile, socketPath, launchId },
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -863,8 +930,9 @@ export default function (pi: ExtensionAPI) {
 				}
 				piArgs.push(`@${promptFile}`);
 
-				const command = `cd ${shellQuote(cwd)} && pi ${piArgs.map(shellQuote).join(" ")}`;
-				await runInPane(container.paneId, command);
+				const launchFile = resolve(promptDir, "launch.sh");
+				await writeFile(launchFile, buildPiLaunchScript({ cwd, env: {}, args: piArgs }), "utf8");
+				await runInPane(container.paneId, `bash ${shellQuote(launchFile)}`);
 
 				return {
 					content: [
@@ -939,7 +1007,7 @@ export default function (pi: ExtensionAPI) {
 		name: "subagent",
 		label: "Subagent",
 		description:
-			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. Optionally pass a `title` to set the Herdr pane/tab label; otherwise the label is derived from the task, profile, and cwd. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
+			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. The coder profile requires an implementationPlan with intent, modifications, and additions. Optionally pass a `title` to set the Herdr pane/tab label; otherwise the label is derived from the task, profile, and cwd. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -948,7 +1016,7 @@ export default function (pi: ExtensionAPI) {
 		name: "Agent",
 		label: "Agent",
 		description:
-			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done. Accepts the same parameters, including an optional `title` for the Herdr pane/tab label.",
+			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done. The coder profile requires an implementationPlan. Accepts the same parameters, including an optional `title` for the Herdr pane/tab label.",
 		parameters: SubagentParams,
 		execute: executeSubagent,
 	});
@@ -1004,6 +1072,7 @@ export default function (pi: ExtensionAPI) {
 export {
 	assistantMessageText,
 	buildPiArgs,
+	buildPiLaunchScript,
 	buildSubagentLabel,
 	buildSubagentPrompt,
 	completionSummary,

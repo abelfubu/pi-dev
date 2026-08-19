@@ -127,7 +127,9 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 
 `subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. Labels are capped at 32 characters. If omitted, a compact label is derived from the task, profile, and working-directory folder. Example: `ITA-123 fix… [coder/auth]`.
 
-`subagent` and `herdr_handoff` launch Pi with `--approve`, so isolated worktrees load their project-local resources without blocking on an interactive trust prompt. This approval applies only to the launched session.
+Every `coder` launch requires an `implementationPlan` containing the change intent plus concrete modifications and additions. Modification/addition entries identify files and relevant interfaces, functions, or symbols. The plan is rendered before the coder task.
+
+`subagent` and `herdr_handoff` launch Pi with `--approve`, so isolated worktrees load their project-local resources without blocking on an interactive trust prompt. Their full Pi invocations are written to temporary launch scripts; Herdr injects only a short `bash <launch-file>` command, avoiding terminal command-line truncation when many files are attached. This approval applies only to the launched session.
 
 `worktrunk` supports `create`, `list`, and `remove`. Creation waits for approved Worktrunk lifecycle hooks, allowing `.worktreeinclude` files to select ignored local state such as `.env*`, `.eslintcache`, and `node_modules/` for copying.
 
