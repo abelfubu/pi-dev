@@ -1,10 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { createHerdrPane, runInPane, shellQuote, zoomHerdrPane } from "../lib/herdr.js";
+import { openHerdrPopup, shellQuote } from "../lib/herdr.js";
 import { resolveReviewTarget } from "../lib/tuicr.js";
 
 interface DiffviewToolDetails {
-	paneId: string;
 	repoDir: string;
 	baseSha: string;
 	headSha: string;
@@ -36,35 +35,28 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
 			const repoDir = requireString(params.repoDir, "repoDir");
 			const baseRef = requireString(params.baseRef, "baseRef");
 			const target = await resolveReviewTarget(repoDir, baseRef);
-			const pane = await createHerdrPane(
-				"pane",
-				"diffview review",
-				target.repoDir,
-				undefined,
-				true,
-			);
-
-			if (!pane.paneId) throw new Error("Herdr did not return a pane ID.");
-
-			await zoomHerdrPane(pane.paneId, true);
-			const command = ["exec nvim", `-c ${shellQuote(`DiffviewOpen ${target.revisions}`)}`].join(
+			const command = ["nvim", `-c ${shellQuote(`DiffviewOpen ${target.revisions}`)}`].join(
 				" ",
 			);
-			await runInPane(pane.paneId, command);
+
+			await openHerdrPopup(command, target.repoDir, {
+				width: "90%",
+				height: "90%",
+				focus: true,
+			});
 
 			return {
 				content: [
 					{
 						type: "text" as const,
 						text: [
-							`Opened Neovim Diffview in pane ${pane.paneId}.`,
+							"Opened Neovim Diffview in a Herdr popup.",
 							`Pinned diff: ${target.mergeBaseSha}..${target.headSha}.`,
-							"The pane closes when Neovim exits; closing the pane terminates Neovim too.",
+							"The popup closes when Neovim exits.",
 						].join("\n"),
 					},
 				],
 				details: {
-					paneId: pane.paneId,
 					repoDir: target.repoDir,
 					baseSha: target.baseSha,
 					headSha: target.headSha,

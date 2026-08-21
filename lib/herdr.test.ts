@@ -8,7 +8,7 @@ vi.mock("node:child_process", () => ({
   execFile: execFileMock,
 }));
 
-import { createHerdrPane, zoomHerdrPane } from "./herdr.js";
+import { createHerdrPane, openHerdrPopup, zoomHerdrPane } from "./herdr.js";
 
 describe("createHerdrPane", () => {
   beforeEach(() => {
@@ -75,5 +75,58 @@ describe("createHerdrPane", () => {
       expect.any(Object),
       expect.any(Function),
     );
+  });
+});
+
+describe("openHerdrPopup", () => {
+  beforeEach(() => {
+    execFileMock.mockReset();
+    execFileMock.mockImplementation(
+      (_file: string, _args: string[], _options: unknown, callback: Function) => {
+        queueMicrotask(() => callback(null, JSON.stringify({ result: { type: "ok" } }), ""));
+        return { exitCode: 0 };
+      },
+    );
+  });
+
+  it("opens a focused 90% popup by default", async () => {
+    await openHerdrPopup("glow README.md", "/repo");
+
+    expect(execFileMock).toHaveBeenCalledWith(
+      "herdr",
+      [
+        "plugin",
+        "pane",
+        "open",
+        "--plugin",
+        "herdr-popup",
+        "--entrypoint",
+        "popup",
+        "--placement",
+        "popup",
+        "--width",
+        "90%",
+        "--height",
+        "90%",
+        "--focus",
+        "--env",
+        "HERDR_POPUP_CMD=glow README.md",
+        "--env",
+        "HERDR_POPUP_CWD=/repo",
+      ],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("can override size and focus", async () => {
+    await openHerdrPopup("nvim", "/repo", { width: "80%", height: "70%", focus: false });
+
+    const call = execFileMock.mock.calls[0] as [string, string[]];
+    expect(call[1]).toContain("--width");
+    expect(call[1][call[1].indexOf("--width") + 1]).toBe("80%");
+    expect(call[1]).toContain("--height");
+    expect(call[1][call[1].indexOf("--height") + 1]).toBe("70%");
+    expect(call[1]).toContain("--no-focus");
   });
 });

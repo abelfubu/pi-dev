@@ -2,17 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const mocks = vi.hoisted(() => ({
-  createHerdrPane: vi.fn(),
-  runInPane: vi.fn(),
-  zoomHerdrPane: vi.fn(),
+  openHerdrPopup: vi.fn(),
   resolveReviewTarget: vi.fn(),
 }));
 
 vi.mock("../lib/herdr.js", () => ({
-  createHerdrPane: mocks.createHerdrPane,
-  runInPane: mocks.runInPane,
+  openHerdrPopup: mocks.openHerdrPopup,
   shellQuote: (value: string) => `'${value}'`,
-  zoomHerdrPane: mocks.zoomHerdrPane,
 }));
 vi.mock("../lib/tuicr.js", () => ({
   resolveReviewTarget: mocks.resolveReviewTarget,
@@ -44,12 +40,10 @@ describe("diffview_review tool", () => {
       mergeBaseSha: "merge-sha",
       revisions: "merge-sha..head-sha",
     });
-    mocks.createHerdrPane.mockResolvedValue({ paneId: "pane-1" });
-    mocks.zoomHerdrPane.mockResolvedValue(undefined);
-    mocks.runInPane.mockResolvedValue(undefined);
+    mocks.openHerdrPopup.mockResolvedValue(undefined);
   });
 
-  it("opens a focused, zoomed Neovim Diffview pane on an immutable revision range", async () => {
+  it("opens a focused 90% Neovim Diffview popup on an immutable revision range", async () => {
     const api = createApi();
     registerDiffviewTools(api);
 
@@ -57,26 +51,19 @@ describe("diffview_review tool", () => {
 
     expect(api.getTool().name).toBe("diffview_review");
     expect(mocks.resolveReviewTarget).toHaveBeenCalledWith("/repo", "main");
-    expect(mocks.createHerdrPane).toHaveBeenCalledWith(
-      "pane",
-      "diffview review",
+    expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
+      "nvim -c 'DiffviewOpen merge-sha..head-sha'",
       "/repo",
-      undefined,
-      true,
-    );
-    expect(mocks.zoomHerdrPane).toHaveBeenCalledWith("pane-1", true);
-    expect(mocks.runInPane).toHaveBeenCalledWith(
-      "pane-1",
-      "exec nvim -c 'DiffviewOpen merge-sha..head-sha' -c 'autocmd VimLeavePre * call jobstart(['herdr', 'pane', 'close', '--current'], {'detach': v:true})'",
+      { width: "90%", height: "90%", focus: true },
     );
     expect(result.content[0].text).toContain("Pinned diff: merge-sha..head-sha");
-    expect(result.content[0].text).toContain("pane closes when Neovim exits");
+    expect(result.content[0].text).toContain("popup closes when Neovim exits");
   });
 
-  it("does not close the pane when Neovim launch fails", async () => {
+  it("surfaces popup launch failures", async () => {
     const api = createApi();
     registerDiffviewTools(api);
-    mocks.runInPane.mockRejectedValueOnce(new Error("launch failed"));
+    mocks.openHerdrPopup.mockRejectedValueOnce(new Error("launch failed"));
 
     await expect(execute(api, { repoDir: "/repo", baseRef: "main" })).rejects.toThrow(
       "launch failed",

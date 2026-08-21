@@ -128,3 +128,36 @@ export async function closeHerdrPane(paneId: string): Promise<void> {
 export async function closeHerdrTab(tabId: string): Promise<void> {
   await runHerdr(["tab", "close", tabId]);
 }
+
+export interface HerdrPopupOptions {
+  width?: string;
+  height?: string;
+  focus?: boolean;
+}
+
+export async function openHerdrPopup(
+  command: string,
+  cwd: string,
+  options: HerdrPopupOptions = {},
+): Promise<void> {
+  await runHerdr([
+    "plugin",
+    "pane",
+    "open",
+    "--plugin",
+    "herdr-popup",
+    "--entrypoint",
+    "popup",
+    "--placement",
+    "popup",
+    "--width",
+    options.width ?? "90%",
+    "--height",
+    options.height ?? "90%",
+    options.focus ?? true ? "--focus" : "--no-focus",
+    "--env",
+    `HERDR_POPUP_CMD=${command}`,
+    "--env",
+    `HERDR_POPUP_CWD=${cwd}`,
+  ]);
+}

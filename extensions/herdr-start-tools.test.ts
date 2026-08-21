@@ -5,12 +5,14 @@ const mocks = vi.hoisted(() => ({
   createHerdrPane: vi.fn(),
   runInPane: vi.fn(),
   zoomHerdrPane: vi.fn(),
+  openHerdrPopup: vi.fn(),
 }));
 
 vi.mock("../lib/herdr.js", () => ({
   createHerdrPane: mocks.createHerdrPane,
   runInPane: mocks.runInPane,
   zoomHerdrPane: mocks.zoomHerdrPane,
+  openHerdrPopup: mocks.openHerdrPopup,
 }));
 
 import registerHerdrStartTools from "./herdr-start-tools.js";
@@ -35,6 +37,7 @@ describe("herdr_start tool", () => {
     mocks.createHerdrPane.mockResolvedValue({ paneId: "pane-1" });
     mocks.zoomHerdrPane.mockResolvedValue(undefined);
     mocks.runInPane.mockResolvedValue(undefined);
+    mocks.openHerdrPopup.mockResolvedValue(undefined);
   });
 
   it("starts a command in a focused, zoomed pane", async () => {
@@ -63,6 +66,7 @@ describe("herdr_start tool", () => {
       command: "nvim /tmp/plan.md",
       cwd: "/repo",
       zoomed: true,
+      popup: false,
     });
   });
 
@@ -95,5 +99,32 @@ describe("herdr_start tool", () => {
       undefined,
       false,
     );
+  });
+
+  it("opens a focused 90% popup when popup is true", async () => {
+    const api = createApi();
+    registerHerdrStartTools(api);
+
+    const result = await execute(api, {
+      command: "glow -p /tmp/plan.md",
+      cwd: "/repo",
+      popup: true,
+    });
+
+    expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
+      "glow -p /tmp/plan.md",
+      "/repo",
+      { width: "90%", height: "90%", focus: true },
+    );
+    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.runInPane).not.toHaveBeenCalled();
+    expect(result.content[0].text).toContain("popup");
+    expect(result.details).toEqual({
+      command: "glow -p /tmp/plan.md",
+      cwd: "/repo",
+      zoomed: false,
+      popup: true,
+    });
   });
 });

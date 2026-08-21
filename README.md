@@ -122,7 +122,7 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 | `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane. |
 | `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
-| `herdr_start` | Create a pane and run any shell command with optional focus and zoom. |
+| `herdr_start` | Create a pane or popup and run any shell command with optional focus, zoom, or popup. |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
 
 `subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. Labels are capped at 32 characters. If omitted, a compact label is derived from the task, profile, and working-directory folder. Example: `ITA-123 fix… [coder/auth]`.
@@ -144,7 +144,7 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 `tuicr_review` supports `open`, `comments`, and `close`. `open` resolves the Git merge base and HEAD to immutable commit SHAs before launching tuicr. Empty comments never imply approval.
 
-`diffview_review` resolves the same immutable diff and opens it with `exec nvim -c "DiffviewOpen <range>"`. A `VimLeavePre` hook closes the pane on a normal Neovim exit; because Neovim replaces the review shell, manually closing the pane also terminates it.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` inside a focused 90% Herdr popup via the `herdr-popup` plugin. The popup closes automatically when Neovim exits.
 
 ### Jira
 

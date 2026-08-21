@@ -1,13 +1,19 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import { Type } from "typebox";
-import { createHerdrPane, runInPane, zoomHerdrPane } from "../lib/herdr.js";
+import {
+  createHerdrPane,
+  openHerdrPopup,
+  runInPane,
+  zoomHerdrPane,
+} from "../lib/herdr.js";
 
 interface HerdrStartDetails {
-  paneId: string;
+  paneId?: string;
   command: string;
   cwd: string;
   zoomed: boolean;
+  popup?: boolean;
 }
 
 function requireString(value: unknown, name: string): string {
@@ -32,23 +38,48 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     zoomed: Type.Optional(
       Type.Boolean({ description: "Zoom the new pane; defaults to false" }),
     ),
+    popup: Type.Optional(
+      Type.Boolean({
+        description:
+          "Open the command in a Herdr popup via the herdr-popup plugin at 90%; overrides zoomed",
+      }),
+    ),
   });
 
   pi.registerTool<typeof parameters, HerdrStartDetails>({
     name: "herdr_start",
     label: "Herdr Start",
     description:
-      "Create a Herdr pane and run an arbitrary shell command in it, with optional focus and zoom.",
-    promptSnippet: "Start a command in a new Herdr pane with optional focus and zoom",
+      "Create a Herdr pane or popup and run an arbitrary shell command in it, with optional focus, zoom, or popup.",
+    promptSnippet: "Start a command in a new Herdr pane or popup with optional focus, zoom, or popup",
     executionMode: "sequential",
     parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const command = requireString(params.command, "command");
       const cwd = resolve(params.cwd ?? ctx?.cwd ?? process.cwd());
-      const label = params.label?.trim() || "Command";
       const focus = params.focus ?? true;
       const zoomed = params.zoomed ?? false;
+      const popup = params.popup ?? false;
 
+      if (popup) {
+        await openHerdrPopup(command, cwd, {
+          width: "90%",
+          height: "90%",
+          focus,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Started command in a Herdr popup (90%). The popup closes when the command exits.",
+            },
+          ],
+          details: { command, cwd, zoomed, popup: true },
+        };
+      }
+
+      const label = params.label?.trim() || "Command";
       const pane = await createHerdrPane("pane", label, cwd, undefined, focus);
       if (!pane.paneId) throw new Error("Herdr did not return a pane ID.");
 
@@ -62,7 +93,7 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
             text: `Started command in Herdr pane ${pane.paneId}${zoomed ? " (zoomed)" : ""}.`,
           },
         ],
-        details: { paneId: pane.paneId, command, cwd, zoomed },
+        details: { paneId: pane.paneId, command, cwd, zoomed, popup: false },
       };
     },
   });
