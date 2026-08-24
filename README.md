@@ -139,10 +139,7 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 | Tool | Purpose |
 |------|---------|
-| `tuicr_review` | Open a pinned local diff in a focused Herdr pane, read its comments, and close the owned pane. |
 | `diffview_review` | Open a pinned local diff in Neovim Diffview in a focused full-screen Herdr popup. |
-
-`tuicr_review` supports `open`, `comments`, and `close`. `open` resolves the Git merge base and HEAD to immutable commit SHAs before launching tuicr. Empty comments never imply approval.
 
 `diffview_review` resolves the same immutable diff and opens it with `exec nvim -c "DiffviewOpen <range>"` in a focused full-screen Herdr popup via the `herdr-popup` plugin. The popup closes automatically when Neovim exits.
 
