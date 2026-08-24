@@ -3,16 +3,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const mocks = vi.hoisted(() => ({
   createHerdrPane: vi.fn(),
+  openHerdrPopup: vi.fn(),
   runInPane: vi.fn(),
   zoomHerdrPane: vi.fn(),
-  openHerdrPopup: vi.fn(),
 }));
 
 vi.mock("../lib/herdr.js", () => ({
   createHerdrPane: mocks.createHerdrPane,
+  openHerdrPopup: mocks.openHerdrPopup,
   runInPane: mocks.runInPane,
   zoomHerdrPane: mocks.zoomHerdrPane,
-  openHerdrPopup: mocks.openHerdrPopup,
 }));
 
 import registerHerdrStartTools from "./herdr-start-tools.js";
@@ -59,6 +59,7 @@ describe("herdr_start tool", () => {
       undefined,
       true,
     );
+    expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
     expect(mocks.zoomHerdrPane).toHaveBeenCalledWith("pane-1", true);
     expect(mocks.runInPane).toHaveBeenCalledWith("pane-1", "nvim /tmp/plan.md");
     expect(result.details).toEqual({
@@ -68,6 +69,34 @@ describe("herdr_start tool", () => {
       zoomed: true,
       popup: false,
     });
+  });
+
+  it("opens a command in a full-screen popup", async () => {
+    const api = createApi();
+    registerHerdrStartTools(api);
+
+    const result = await execute(api, {
+      command: "glow -p /tmp/plan.md",
+      cwd: "/repo",
+      label: "Plan review",
+      popup: true,
+    });
+
+    expect(api.getTool().name).toBe("herdr_start");
+    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
+      "glow -p /tmp/plan.md",
+      "/repo",
+      { focus: true },
+    );
+    expect(result.details).toEqual({
+      command: "glow -p /tmp/plan.md",
+      cwd: "/repo",
+      zoomed: false,
+      popup: true,
+    });
+    expect(result.content[0].text).toContain("full-screen Herdr popup");
   });
 
   it("uses caller defaults without zooming", async () => {
@@ -84,6 +113,7 @@ describe("herdr_start tool", () => {
       true,
     );
     expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
   });
 
   it("can create an unfocused pane", async () => {
@@ -99,32 +129,6 @@ describe("herdr_start tool", () => {
       undefined,
       false,
     );
-  });
-
-  it("opens a focused 90% popup when popup is true", async () => {
-    const api = createApi();
-    registerHerdrStartTools(api);
-
-    const result = await execute(api, {
-      command: "glow -p /tmp/plan.md",
-      cwd: "/repo",
-      popup: true,
-    });
-
-    expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
-      "glow -p /tmp/plan.md",
-      "/repo",
-      { width: "90%", height: "90%", focus: true },
-    );
-    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
-    expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
-    expect(mocks.runInPane).not.toHaveBeenCalled();
-    expect(result.content[0].text).toContain("popup");
-    expect(result.details).toEqual({
-      command: "glow -p /tmp/plan.md",
-      cwd: "/repo",
-      zoomed: false,
-      popup: true,
-    });
+    expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
   });
 });

@@ -43,7 +43,7 @@ describe("diffview_review tool", () => {
     mocks.openHerdrPopup.mockResolvedValue(undefined);
   });
 
-  it("opens a focused 90% Neovim Diffview popup on an immutable revision range", async () => {
+  it("opens a focused, full-screen Neovim Diffview popup on an immutable revision range", async () => {
     const api = createApi();
     registerDiffviewTools(api);
 
@@ -52,10 +52,11 @@ describe("diffview_review tool", () => {
     expect(api.getTool().name).toBe("diffview_review");
     expect(mocks.resolveReviewTarget).toHaveBeenCalledWith("/repo", "main");
     expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
-      "nvim -c 'DiffviewOpen merge-sha..head-sha'",
+      "exec nvim -c 'DiffviewOpen merge-sha..head-sha'",
       "/repo",
-      { width: "90%", height: "90%", focus: true },
+      { focus: true },
     );
+    expect(result.content[0].text).toContain("full-screen Herdr popup");
     expect(result.content[0].text).toContain("Pinned diff: merge-sha..head-sha");
     expect(result.content[0].text).toContain("popup closes when Neovim exits");
   });

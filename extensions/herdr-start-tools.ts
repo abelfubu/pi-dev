@@ -13,7 +13,7 @@ interface HerdrStartDetails {
   command: string;
   cwd: string;
   zoomed: boolean;
-  popup?: boolean;
+  popup: boolean;
 }
 
 function requireString(value: unknown, name: string): string {
@@ -41,7 +41,7 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     popup: Type.Optional(
       Type.Boolean({
         description:
-          "Open the command in a Herdr popup via the herdr-popup plugin at 90%; overrides zoomed",
+          "Open the command in a full-screen Herdr popup via the herdr-popup plugin; overrides zoomed",
       }),
     ),
   });
@@ -62,20 +62,16 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
       const popup = params.popup ?? false;
 
       if (popup) {
-        await openHerdrPopup(command, cwd, {
-          width: "90%",
-          height: "90%",
-          focus,
-        });
+        await openHerdrPopup(command, cwd, { focus });
 
         return {
           content: [
             {
               type: "text" as const,
-              text: "Started command in a Herdr popup (90%). The popup closes when the command exits.",
+              text: "Started command in a full-screen Herdr popup. The popup closes when the command exits.",
             },
           ],
-          details: { command, cwd, zoomed, popup: true },
+          details: { command, cwd, zoomed: false, popup: true },
         };
       }
 

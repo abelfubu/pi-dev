@@ -109,26 +109,6 @@ export async function createHerdrPane(
   return { paneId };
 }
 
-export async function runInPane(paneId: string, command: string): Promise<void> {
-  await runHerdr(["pane", "run", paneId, command]);
-}
-
-export async function zoomHerdrPane(paneId: string, zoomed: boolean): Promise<void> {
-  await runHerdr(["pane", "zoom", "--pane", paneId, zoomed ? "--on" : "--off"]);
-}
-
-export async function notifyPane(paneId: string, message: string): Promise<void> {
-  await runInPane(paneId, message);
-}
-
-export async function closeHerdrPane(paneId: string): Promise<void> {
-  await runHerdr(["pane", "close", paneId]);
-}
-
-export async function closeHerdrTab(tabId: string): Promise<void> {
-  await runHerdr(["tab", "close", tabId]);
-}
-
 export interface HerdrPopupOptions {
   width?: string;
   height?: string;
@@ -151,13 +131,33 @@ export async function openHerdrPopup(
     "--placement",
     "popup",
     "--width",
-    options.width ?? "90%",
+    options.width ?? "100%",
     "--height",
-    options.height ?? "90%",
+    options.height ?? "100%",
     options.focus ?? true ? "--focus" : "--no-focus",
     "--env",
     `HERDR_POPUP_CMD=${command}`,
     "--env",
     `HERDR_POPUP_CWD=${cwd}`,
   ]);
+}
+
+export async function runInPane(paneId: string, command: string): Promise<void> {
+  await runHerdr(["pane", "run", paneId, command]);
+}
+
+export async function zoomHerdrPane(paneId: string, zoomed: boolean): Promise<void> {
+  await runHerdr(["pane", "zoom", "--pane", paneId, zoomed ? "--on" : "--off"]);
+}
+
+export async function notifyPane(paneId: string, message: string): Promise<void> {
+  await runInPane(paneId, message);
+}
+
+export async function closeHerdrPane(paneId: string): Promise<void> {
+  await runHerdr(["pane", "close", paneId]);
+}
+
+export async function closeHerdrTab(tabId: string): Promise<void> {
+  await runHerdr(["tab", "close", tabId]);
 }
