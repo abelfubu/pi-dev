@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0005
+---
+
 # Subagent execution via Herdr handoff
 
 The `subagent` tool is registered by this extension and routes every subagent invocation into an interactive Herdr tab or pane instead of a headless `pi` subprocess. Subagents are configured through named profiles that define model and layout, and they report results by writing an artifact file and notifying the parent pane.

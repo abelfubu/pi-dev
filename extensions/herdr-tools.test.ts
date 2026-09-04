@@ -99,12 +99,14 @@ describe("subagent completion", () => {
 });
 
 describe("buildPiLaunchArgs", () => {
-	it("always approves project trust for launched sessions", () => {
+	it("always approves project trust and forwards model and thinking", () => {
 		expect(buildPiLaunchArgs()).toEqual(["--approve"]);
-		expect(buildPiLaunchArgs("openai-codex/gpt-5.6-sol")).toEqual([
+		expect(buildPiLaunchArgs("openai-codex/gpt-5.6-sol", "high")).toEqual([
 			"--approve",
 			"--model",
 			"openai-codex/gpt-5.6-sol",
+			"--thinking",
+			"high",
 		]);
 	});
 });
@@ -274,10 +276,11 @@ describe("buildPiArgs", () => {
 		expect(args[args.indexOf("--tools") + 1]).toBe("bash,subagent_notify");
 	});
 
-	it("passes explicit skills and prompt templates with resolved paths", () => {
+	it("passes explicit extensions, skills, and prompt templates with resolved paths", () => {
 		const args = buildPiArgs({
 			profile: {
 				name: "coder",
+				extensions: ["extensions/code-check-tools.ts"],
 				skills: ["skills/check"],
 				promptTemplates: ["~/prompts/tdd.md"],
 			},
@@ -285,6 +288,8 @@ describe("buildPiArgs", () => {
 			promptFile: "/tmp/prompt.md",
 			cwd: "/repo",
 		});
+		expect(args).toContain("--extension");
+		expect(args[args.indexOf("--extension") + 1]).toBe("/repo/extensions/code-check-tools.ts");
 		expect(args).toContain("--no-skills");
 		expect(args).toContain("--skill");
 		expect(args[args.indexOf("--skill") + 1]).toBe("/repo/skills/check");

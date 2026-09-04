@@ -4,22 +4,33 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export type SubagentLayout = "tab" | "pane";
+export type SubagentBackend = "headless" | "herdr";
+export type SubagentThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface SubagentDefaultsConfig {
   model?: string;
+  backend?: SubagentBackend;
+  thinking?: SubagentThinkingLevel;
   layout?: SubagentLayout;
+  timeoutMs?: number;
+  maxConcurrency?: number;
   /** Auto-close the subagent Herdr pane when it reports done. Default: true. */
   autoClosePane?: boolean;
 }
 
 export interface SubagentProfileConfig {
   name?: string;
+  backend?: SubagentBackend;
+  thinking?: SubagentThinkingLevel;
   layout?: SubagentLayout;
   model?: string;
-  /** Allowlist of tools passed to the subagent via `--tools`. `subagent_notify` is always appended. */
+  timeoutMs?: number;
+  /** Allowlist of tools passed to the subagent via `--tools`. */
   tools?: string[];
   /** Tools disabled via `--exclude-tools`. */
   excludeTools?: string[];
+  /** Explicit extension paths loaded after disabling extension discovery. */
+  extensions?: string[];
   /** Explicit skill paths. When present, the subagent launches with `--no-skills` plus one `--skill` per entry (empty array = no skills). */
   skills?: string[];
   /** Explicit prompt template paths. When present, the subagent launches with `--no-prompt-templates` plus one `--prompt-template` per entry. */

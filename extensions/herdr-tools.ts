@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { loadConfig, type PiDevConfig } from "../lib/config.js";
 import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
+import type { ImplementationPlan, SubagentInvocation, SubagentProfile } from "../lib/subagent/types.js";
 
 function textContent(text: string): { type: "text"; text: string } {
 	return { type: "text", text };
@@ -24,26 +25,10 @@ interface SubagentDetails {
 	socketError?: string;
 }
 
-interface SubagentProfile {
-	name: string;
-	layout?: "tab" | "pane";
-	model?: string;
-	tools?: string[];
-	excludeTools?: string[];
-	skills?: string[];
-	promptTemplates?: string[];
-}
-
-interface ImplementationPlan {
-	intent: string;
-	modifications: string[];
-	additions: string[];
-}
-
-// Resolve the repo-local check and tdd skills so the coder profile keeps its
-// workflow guidance even when skill discovery is disabled. Omitted when not installed.
+// Resolve the package's check skill so the coder profile keeps focused-check
+// guidance when skill discovery is disabled. Omitted when not installed.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CODER_SKILLS = [join(REPO_ROOT, "skills", "check")].filter(existsSync).concat("tdd");
+const CODER_SKILLS = [join(REPO_ROOT, "skills", "check")].filter(existsSync);
 
 const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls", "subagent_notify"];
 const CODER_TOOLS = [
@@ -71,6 +56,7 @@ const DEFAULT_SUBAGENT_PROFILES: Record<string, SubagentProfile> = {
 		name: "coder",
 		layout: "tab",
 		tools: CODER_TOOLS,
+		extensions: [join(REPO_ROOT, "extensions", "code-check-tools.ts")],
 		skills: CODER_SKILLS,
 		promptTemplates: [],
 	},
@@ -94,8 +80,11 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 	const config = await loadConfig(cwd).catch(() => ({} as PiDevConfig));
 	const defaults: SubagentProfile = {
 		name: "",
+		backend: config.subagentDefaults?.backend ?? "headless",
 		layout: config.subagentDefaults?.layout,
 		model: config.subagentDefaults?.model,
+		thinking: config.subagentDefaults?.thinking,
+		timeoutMs: config.subagentDefaults?.timeoutMs,
 	};
 
 	const profiles: Record<string, SubagentProfile> = { ...DEFAULT_SUBAGENT_PROFILES };
@@ -108,10 +97,14 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 			const base = profiles[key] ?? mergeProfiles(defaults, { name: profileConfig.name ?? key });
 			profiles[key] = mergeProfiles(base, {
 				name: profileConfig.name,
+				backend: profileConfig.backend,
 				layout: profileConfig.layout,
 				model: profileConfig.model,
+				thinking: profileConfig.thinking,
+				timeoutMs: profileConfig.timeoutMs,
 				tools: profileConfig.tools,
 				excludeTools: profileConfig.excludeTools,
+				extensions: profileConfig.extensions,
 				skills: profileConfig.skills,
 				promptTemplates: profileConfig.promptTemplates,
 			});
@@ -124,10 +117,14 @@ async function loadSubagentProfiles(cwd: string): Promise<Record<string, Subagen
 function mergeProfiles(base: SubagentProfile, override: Partial<SubagentProfile>): SubagentProfile {
 	return {
 		name: override.name ?? base.name,
+		backend: override.backend ?? base.backend,
 		layout: override.layout ?? base.layout,
 		model: override.model ?? base.model,
+		thinking: override.thinking ?? base.thinking,
+		timeoutMs: override.timeoutMs ?? base.timeoutMs,
 		tools: override.tools ?? base.tools,
 		excludeTools: override.excludeTools ?? base.excludeTools,
+		extensions: override.extensions ?? base.extensions,
 		skills: override.skills ?? base.skills,
 		promptTemplates: override.promptTemplates ?? base.promptTemplates,
 	};
@@ -137,8 +134,12 @@ export function resolveSubagentModel(explicitModel?: string, profileModel?: stri
 	return explicitModel?.trim() || profileModel?.trim() || undefined;
 }
 
-export function buildPiLaunchArgs(model?: string): string[] {
-	return ["--approve", ...(model ? ["--model", model] : [])];
+export function buildPiLaunchArgs(model?: string, thinking?: string): string[] {
+	return [
+		"--approve",
+		...(model ? ["--model", model] : []),
+		...(thinking ? ["--thinking", thinking] : []),
+	];
 }
 
 /** Build a disk-backed Pi invocation so Herdr only injects a short command. */
@@ -173,12 +174,13 @@ function expandConfigPath(path: string, cwd: string): string {
 function buildPiArgs(params: {
 	profile: SubagentProfile;
 	model?: string;
+	thinking?: string;
 	files: string[];
 	promptFile: string;
 	cwd: string;
 }): string[] {
-	const { profile, model, files, promptFile, cwd } = params;
-	const args = buildPiLaunchArgs(model);
+	const { profile, model, thinking, files, promptFile, cwd } = params;
+	const args = buildPiLaunchArgs(model, thinking);
 	if (profile.tools) {
 		const tools = profile.tools.includes("subagent_notify")
 			? profile.tools
@@ -187,6 +189,9 @@ function buildPiArgs(params: {
 	}
 	if (profile.excludeTools?.length) {
 		args.push("--exclude-tools", profile.excludeTools.join(","));
+	}
+	for (const extension of profile.extensions ?? []) {
+		args.push("--extension", expandConfigPath(extension, cwd));
 	}
 	if (profile.skills) {
 		args.push("--no-skills");
@@ -560,8 +565,19 @@ const SubagentParams = Type.Object({
 	),
 	model: Type.Optional(
 		Type.String({
-			description: "Optional model/provider to pass to pi with --model",
+			description: "Optional model/provider override",
 		}),
+	),
+	backend: Type.Optional(
+		Type.Union([Type.Literal("headless"), Type.Literal("herdr")], {
+			description: "Execution backend override; defaults to the profile, then headless",
+		}),
+	),
+	thinking: Type.Optional(
+		Type.Union([
+			Type.Literal("off"), Type.Literal("minimal"), Type.Literal("low"),
+			Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
+		], { description: "Thinking level override" }),
 	),
 });
 
@@ -655,17 +671,9 @@ function buildSubagentLabel(params: {
 	return sanitizeLabel(`${prefix}${shortHeadline}${suffix}`);
 }
 
-async function executeSubagent(
+async function executeHerdrSubagent(
 	_id: string,
-	params: {
-		profile: string;
-		task: string;
-		implementationPlan?: ImplementationPlan;
-		title?: string;
-		files?: string[];
-		cwd?: string;
-		model?: string;
-	},
+	params: SubagentInvocation,
 	_signal: AbortSignal | undefined,
 	_onUpdate: unknown,
 	ctx: { cwd?: string },
@@ -742,6 +750,7 @@ async function executeSubagent(
 		const piArgs = buildPiArgs({
 			profile,
 			model: resolveSubagentModel(params.model, profile.model),
+			thinking: params.thinking ?? profile.thinking,
 			files,
 			promptFile,
 			cwd,
@@ -1004,24 +1013,6 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "subagent",
-		label: "Subagent",
-		description:
-			"Launch a specialized subagent in a new Herdr tab or pane. Profiles can be defined in ~/.pi/agent/pi-dev.json under the subagents key; default profiles are reviewer, coder, scout, and minimal. The coder profile requires an implementationPlan with intent, modifications, and additions. Optionally pass a `title` to set the Herdr pane/tab label; otherwise the label is derived from the task, profile, and cwd. The subagent writes its final result to an artifact file and calls subagent_notify when done.",
-		parameters: SubagentParams,
-		execute: executeSubagent,
-	});
-
-	pi.registerTool({
-		name: "Agent",
-		label: "Agent",
-		description:
-			"Alias for the subagent tool. Use when a skill or prompt refers to an Agent. Launches a specialized subagent that writes its final result to an artifact file and calls subagent_notify when done. The coder profile requires an implementationPlan. Accepts the same parameters, including an optional `title` for the Herdr pane/tab label.",
-		parameters: SubagentParams,
-		execute: executeSubagent,
-	});
-
-	pi.registerTool({
 		name: "subagent_notify",
 		label: "Subagent Notify",
 		description:
@@ -1082,8 +1073,11 @@ export {
 	folderName,
 	isDuplicateCompletion,
 	latestAssistantText,
+	loadSubagentProfiles,
 	mergeProfiles,
+	executeHerdrSubagent,
+	SubagentParams,
 	sanitizeLabel,
 	taskHeadline,
 };
-export type { SubagentProfile };
+export type { SubagentProfile } from "../lib/subagent/types.js";

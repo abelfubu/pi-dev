@@ -106,7 +106,7 @@ _Avoid_: release, deploy.
 ## Delegation
 
 **Subagent**:
-A scoped `pi` session launched to handle a slice of work independently. The canonical unit of delegation in this extension.
+A scoped `pi` session launched to handle a slice of work independently. The canonical delegated actor in this extension.
 _Avoid_: handoff, spawn, worker.
 
 **Handoff**:
@@ -114,19 +114,27 @@ The action of delegating a slice to a subagent by opening a new Herdr tab/pane a
 _Avoid_: subagent, spawn.
 
 **Slice**:
-A self-contained unit of work handed off to a new Herdr tab.
+A self-contained unit of work delegated to a subagent.
 _Avoid_: task, feature, ticket.
+
+**Subagent Result**:
+The structured completion record returned by a subagent, containing its status, output, token usage, and applicable execution facts. Its capture is owned by the execution harness rather than the model.
+_Avoid_: summary, notification, final message.
 
 **Herdr Tab**:
 A new subcontext inside the current Herdr workspace, used as the target for a handoff.
 _Avoid_: pane, window, workspace.
 
 **Subagent Profile**:
-A named configuration that defines which skills, tools, model, and Herdr layout a subagent loads. Profiles can be defined or overridden in `~/.pi/agent/pi-dev.json` under the `subagents` key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) are used as defaults. Used to keep the subagent's context small and specialized.
+A named configuration that defines a subagent's execution backend, model, thinking level, tools, and loaded resources. Profiles can be defined or overridden under the `subagents` configuration key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) provide defaults.
 _Avoid_: agent template, role, specialization.
 
+**Headless Execution**:
+Awaited execution of a subagent in an isolated `pi` subprocess without a Herdr pane. Its result and usage return directly through the originating tool call.
+_Avoid_: background execution, detached execution, hidden handoff.
+
 **Prompt**:
-The markdown instructions passed to a new interactive `pi` session as part of a handoff.
+The markdown instructions supplied to a subagent when a slice starts.
 _Avoid_: message, request, instruction.
 
 I just made some fake change

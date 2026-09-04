@@ -43,19 +43,22 @@ Without configuration, exact `check`, `lint`, `typecheck`, and `test` scripts ar
 
 ### subagentDefaults
 
-Use `subagentDefaults` to set a base model or layout for every subagent profile. Per-profile values in `subagents` override these defaults.
+Use `subagentDefaults` to set execution defaults for every profile. Headless execution is the default. Per-profile values and tool-call overrides take precedence.
 
 ```json
 {
   "subagentDefaults": {
-    "model": "kimi-coding/kimi-for-coding"
+    "backend": "headless",
+    "model": "kimi-coding/kimi-for-coding",
+    "thinking": "medium",
+    "maxConcurrency": 4
   }
 }
 ```
 
 ### subagents
 
-The `subagents` key defines or overrides subagent profiles used by the `subagent` tool. A profile only needs a `name`, `layout` (`tab` or `pane`), and an optional `model`. Config fields override the matching built-in profile field-by-field, so you can change just the model of a default profile:
+The `subagents` key defines or overrides profiles used by the `subagent` tool. Config fields override matching built-in fields individually. Use `backend: "herdr"` when a profile should remain interactive; `layout` only applies to that backend:
 
 ```json
 {
@@ -74,7 +77,9 @@ Or define a fully custom profile:
   "subagents": {
     "quick": {
       "name": "quick",
-      "layout": "pane"
+      "backend": "herdr",
+      "layout": "pane",
+      "thinking": "low"
     }
   }
 }
@@ -88,15 +93,20 @@ Profiles can restrict what a subagent session loads, keeping its context lean:
 
 | Field | Effect |
 |-------|--------|
-| `tools` | Allowlist passed as `--tools`. `subagent_notify` is always appended. |
-| `excludeTools` | Denylist passed as `--exclude-tools`. |
-| `skills` | Explicit skill paths; launches with `--no-skills` plus one `--skill` per entry. Empty array = no skills at all. Supports `~` and cwd-relative paths. |
-| `promptTemplates` | Explicit template paths; launches with `--no-prompt-templates` plus one `--prompt-template` per entry. |
+| `backend` | `headless` (default) or `herdr`. |
+| `model` | Model override passed through `--model`. |
+| `thinking` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
+| `timeoutMs` | Optional execution timeout; disabled when omitted. |
+| `tools` | Tool allowlist passed through `--tools`. |
+| `excludeTools` | Tool denylist passed through `--exclude-tools`. |
+| `extensions` | Explicit extension paths. Headless runs disable extension discovery. |
+| `skills` | Explicit skill paths. Headless runs disable skill discovery. |
+| `promptTemplates` | Explicit prompt-template paths. Headless runs disable template discovery. |
 
-Fields left `undefined` keep pi's default discovery. Built-in defaults:
+Headless runs also use `--no-session` and return the final assistant response directly. Built-in defaults:
 
 - `reviewer` / `scout` — read-only tools (`read`, `bash`, `grep`, `find`, `ls`, `subagent_notify`), no skills, no prompt templates.
-- `coder` — full editing tools plus the `code_check*` tools; keeps the repo-local `check` and `tdd` skills when installed; no prompt templates.
+- `coder` — editing tools plus the `code_check*` tools and the package's `check` skill; no prompt templates.
 - `minimal` — `bash`, `read`, `subagent_notify` only.
 
 Example: give the coder a different model and add a custom skill (overriding `skills` replaces the built-in defaults, so re-add the package skills by absolute path if you want them):
@@ -114,22 +124,27 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 
 ## Tools
 
+### Delegation
+
+| Tool | Purpose |
+|------|---------|
+| `subagent` | Run a scoped headless subagent, or launch one in Herdr when explicitly requested. |
+
+`subagent` runs an isolated `pi --mode json -p` subprocess and waits for its structured completion by default. The harness captures final output and token usage, forwards cancellation, limits concurrent runs, serializes writers sharing a working directory, caps model-visible output at 50 KB, and persists failed JSONL transcripts for seven days under `~/.pi/agent/pi-dev/subagent-runs/`.
+
+Every `coder` launch requires an `implementationPlan` containing the change intent plus concrete modifications and additions. Modification/addition entries identify files and relevant interfaces, functions, or symbols. The plan is rendered before the coder task.
+
+Pass `backend: "herdr"` for asynchronous interactive inspection. Its optional `title` sets the pane/tab label; otherwise a compact label is derived from the task, profile, and working directory. Herdr launches retain the result-artifact and notification protocol.
+
 ### Herdr
 
 | Tool | Purpose |
 |------|---------|
 | `herdr_handoff` | Open a new focused Herdr tab and seed a fresh interactive `pi` session with a prompt. |
-| `subagent` / `Agent` | Launch a specialized subagent in a Herdr tab/pane. |
-| `subagent_notify` | Notify the parent session that a subagent has finished (Unix socket, with Herdr fallback). |
+| `subagent_notify` | Notify the parent session that a Herdr subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 | `herdr_start` | Create a pane or full-screen popup and run any shell command with optional focus, zoom, or popup. |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
-
-`subagent` accepts an optional `title` parameter that sets the Herdr pane/tab label. Labels are capped at 32 characters. If omitted, a compact label is derived from the task, profile, and working-directory folder. Example: `ITA-123 fix… [coder/auth]`.
-
-Every `coder` launch requires an `implementationPlan` containing the change intent plus concrete modifications and additions. Modification/addition entries identify files and relevant interfaces, functions, or symbols. The plan is rendered before the coder task.
-
-`subagent` and `herdr_handoff` launch Pi with `--approve`, so isolated worktrees load their project-local resources without blocking on an interactive trust prompt. Their full Pi invocations are written to temporary launch scripts; Herdr injects only a short `bash <launch-file>` command, avoiding terminal command-line truncation when many files are attached. This approval applies only to the launched session.
 
 `worktrunk` supports `create`, `list`, and `remove`. Creation waits for approved Worktrunk lifecycle hooks, allowing `.worktreeinclude` files to select ignored local state such as `.env*`, `.eslintcache`, and `node_modules/` for copying.
 
