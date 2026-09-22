@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   assertNoOpenPullRequestByCurrentUser,
+  fetchPrComments,
   prToolConfig,
 } from "./pr-tools.js";
 
@@ -57,6 +58,71 @@ describe("assertNoOpenPullRequestByCurrentUser", () => {
     await expect(
       assertNoOpenPullRequestByCurrentUser({}, ctx, async () => ({})),
     ).rejects.toThrow("Unable to verify");
+  });
+});
+
+describe("fetchPrComments", () => {
+  it("fetches conversation, review summaries, and inline review comments", async () => {
+    const calls: string[][] = [];
+    const responses = [
+      [[{ id: 1, user: { login: "alice" }, body: "Conversation" }]],
+      [[{ id: 2, user: { login: "coderabbitai" }, body: "Summary" }]],
+      [[{ id: 3, user: { login: "coderabbitai" }, body: "Fix this", path: "src/a.ts" }]],
+    ];
+    const result = await fetchPrComments(
+      { repo: "owner/repo", number: 42 },
+      ctx,
+      async (args) => {
+        calls.push(args);
+        return responses[calls.length - 1];
+      },
+    );
+
+    expect(calls).toEqual([
+      ["api", "--paginate", "--slurp", "repos/owner/repo/issues/42/comments?per_page=100"],
+      ["api", "--paginate", "--slurp", "repos/owner/repo/pulls/42/reviews?per_page=100"],
+      ["api", "--paginate", "--slurp", "repos/owner/repo/pulls/42/comments?per_page=100"],
+    ]);
+    expect(result.conversation).toHaveLength(1);
+    expect(result.reviews).toHaveLength(1);
+    expect(result.reviewComments).toHaveLength(1);
+  });
+
+  it("uses repository placeholders and filters by author", async () => {
+    const calls: string[][] = [];
+    const result = await fetchPrComments(
+      { number: 7, author: "@copilot-pull-request-reviewer" },
+      ctx,
+      async (args) => {
+        calls.push(args);
+        return [[
+          { id: 1, user: { login: "Copilot-Pull-Request-Reviewer" } },
+          { id: 2, user: { login: "someone-else" } },
+        ]];
+      },
+    );
+
+    expect(calls[0][3]).toContain("repos/{owner}/{repo}/issues/7");
+    expect(result.conversation.map((comment) => comment.id)).toEqual([1]);
+    expect(result.reviews.map((comment) => comment.id)).toEqual([1]);
+    expect(result.reviewComments.map((comment) => comment.id)).toEqual([1]);
+  });
+
+  it("accepts a PR URL and rejects branch names", async () => {
+    const calls: string[][] = [];
+    await fetchPrComments(
+      { number: "https://github.com/acme/widgets/pull/19" },
+      ctx,
+      async (args) => {
+        calls.push(args);
+        return [];
+      },
+    );
+    expect(calls[0][3]).toContain("repos/acme/widgets/issues/19");
+
+    await expect(
+      fetchPrComments({ number: "feature-branch" }, ctx, async () => []),
+    ).rejects.toThrow("PR number or GitHub PR URL");
   });
 });
 
@@ -231,6 +297,34 @@ describe("prToolConfig", () => {
       );
       expect(text).toContain("#42");
       expect(text).toContain("T");
+    });
+  });
+
+  describe("comments", () => {
+    const handler = prToolConfig.handlers.comments;
+
+    it("formats all comment types with actionable locations", () => {
+      const text = handler.format(
+        {
+          conversation: [
+            { id: 1, user: { login: "alice" }, body: "General note", created_at: "now" },
+          ],
+          reviews: [
+            { id: 2, user: { login: "coderabbitai" }, body: "Review summary", state: "COMMENTED" },
+          ],
+          reviewComments: [
+            { id: 3, user: { login: "copilot" }, body: "Fix this", path: "src/a.ts", line: 12 },
+          ],
+        } as any,
+        { action: "comments" } as any,
+        ctx,
+      );
+
+      expect(text).toContain("Conversation comments");
+      expect(text).toContain("Review summaries");
+      expect(text).toContain("Inline review comments");
+      expect(text).toContain("`src/a.ts:12`");
+      expect(text).toContain("Fix this");
     });
   });
 

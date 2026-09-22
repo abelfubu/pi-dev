@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { registerGhActionTool, type ActionContext, type GhActionToolConfig } from "./tool.js";
-import { formatPr, formatPrList, formatChecks } from "./format.js";
+import { formatPr, formatPrList, formatChecks, formatPrComments } from "./format.js";
 import { runGhJson } from "./runner.js";
 
 const DEFAULT_VIEW_FIELDS =
@@ -11,6 +11,7 @@ const PrAction = Type.Union([
   Type.Literal("create"),
   Type.Literal("list"),
   Type.Literal("view"),
+  Type.Literal("comments"),
   Type.Literal("checks"),
   Type.Literal("merge"),
   Type.Literal("comment"),
@@ -53,6 +54,53 @@ interface AuthoredPullRequest {
 
 type JsonRunner = (args: string[], cwd?: string) => Promise<unknown>;
 
+function flattenPages(result: unknown): any[] {
+  if (!Array.isArray(result)) return [];
+  return result.every(Array.isArray) ? result.flat() : result;
+}
+
+function prApiLocation(params: Pick<PrParams, "repo" | "number">): {
+  repo: string;
+  number: string;
+} {
+  const value = String(params.number ?? "");
+  const urlMatch = value.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/);
+  if (urlMatch) {
+    return { repo: `${urlMatch[1]}/${urlMatch[2]}`, number: urlMatch[3] };
+  }
+  if (!/^\d+$/.test(value)) {
+    throw new Error("number must be a PR number or GitHub PR URL for comments");
+  }
+  return { repo: params.repo ?? "{owner}/{repo}", number: value };
+}
+
+export async function fetchPrComments(
+  params: Pick<PrParams, "repo" | "number" | "author">,
+  ctx: ActionContext,
+  runJson: JsonRunner = runGhJson,
+): Promise<{ conversation: any[]; reviews: any[]; reviewComments: any[] }> {
+  const { repo, number } = prApiLocation(params);
+  const prefix = `repos/${repo}`;
+  const apiArgs = (endpoint: string) => ["api", "--paginate", "--slurp", endpoint];
+  const [conversationResult, reviewsResult, reviewCommentsResult] = await Promise.all([
+    runJson(apiArgs(`${prefix}/issues/${number}/comments?per_page=100`), ctx.cwd),
+    runJson(apiArgs(`${prefix}/pulls/${number}/reviews?per_page=100`), ctx.cwd),
+    runJson(apiArgs(`${prefix}/pulls/${number}/comments?per_page=100`), ctx.cwd),
+  ]);
+
+  const byAuthor = (items: any[]) => {
+    if (!params.author) return items;
+    const author = params.author.replace(/^@/, "").toLowerCase();
+    return items.filter((item) => item.user?.login?.toLowerCase() === author);
+  };
+
+  return {
+    conversation: byAuthor(flattenPages(conversationResult)),
+    reviews: byAuthor(flattenPages(reviewsResult)),
+    reviewComments: byAuthor(flattenPages(reviewCommentsResult)),
+  };
+}
+
 export async function assertNoOpenPullRequestByCurrentUser(
   params: Pick<PrParams, "repo">,
   ctx: ActionContext,
@@ -93,7 +141,7 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
   name: "gh_pr",
   label: "GitHub Pull Request",
   description:
-    "Perform a GitHub pull request operation: create, list, view, checks, merge, comment, close, reopen, review, or diff",
+    "Perform a GitHub pull request operation: create, list, view, comments, checks, merge, comment, close, reopen, review, or diff",
   parameters: Type.Object({
     action: PrAction,
     repo: Type.Optional(Type.String({ description: "Repository as OWNER/NAME" })),
@@ -150,7 +198,7 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
         default: "open",
       }),
     ),
-    author: Type.Optional(Type.String({ description: "Filter by author login (list)" })),
+    author: Type.Optional(Type.String({ description: "Filter by author login (list/comments)" })),
     limit: Type.Optional(
       Type.Number({ description: "Maximum number of results (list)", default: 30 }),
     ),
@@ -227,6 +275,12 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
         return args;
       },
       format: (result) => formatPr(result),
+    },
+    comments: {
+      runType: "json",
+      buildArgs: () => [],
+      execute: (params, ctx) => fetchPrComments(params, ctx),
+      format: (result) => formatPrComments(result as any),
     },
     checks: {
       runType: "text",

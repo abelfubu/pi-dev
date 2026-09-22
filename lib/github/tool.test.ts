@@ -99,6 +99,31 @@ describe("registerGhActionTool", () => {
     expect(result.content[0].text).toBe('{"ok":true}');
   });
 
+  it("supports handlers with custom execution", async () => {
+    const api = createMockApi();
+    const execute = vi.fn().mockResolvedValue({ value: "custom" });
+    registerGhActionTool(api, {
+      name: "gh_custom",
+      label: "Custom",
+      description: "Custom tool",
+      parameters: Type.Object({ action: Type.String() }),
+      handlers: {
+        custom: {
+          runType: "json",
+          buildArgs: () => [],
+          execute,
+          format: (result) => (result as { value: string }).value,
+        },
+      },
+    });
+
+    const result = await executeTool(api, "gh_custom", { action: "custom" }, { cwd: "/tmp/repo" });
+    expect(execute).toHaveBeenCalledWith({ action: "custom" }, { cwd: "/tmp/repo" });
+    expect(mockRunGh).not.toHaveBeenCalled();
+    expect(mockRunGhJson).not.toHaveBeenCalled();
+    expect(result.content[0].text).toBe("custom");
+  });
+
   it("resolves cwd from ctx.cwd when provided", async () => {
     const api = createMockApi();
     registerGhActionTool(api, createConfig());

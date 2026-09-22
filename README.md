@@ -168,7 +168,7 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 | Tool | Purpose |
 |------|---------|
-| `gh_pr` | Pull request operations: create, list, view, checks, merge, comment, close, reopen, review, diff |
+| `gh_pr` | Pull request operations: create, list, view, fetch comments, checks, merge, comment, close, reopen, review, diff |
 | `gh_issue` | Issue operations: create, list, view, comment, close, reopen |
 | `gh_run` | Actions run operations: list, view, rerun |
 | `gh_workflow` | Actions workflow operations: list, trigger |

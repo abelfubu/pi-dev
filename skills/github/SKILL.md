@@ -11,7 +11,7 @@ The GitHub tools move work from local to remote: open a PR, review it, merge it,
 
 Hold on every run:
 
-- `gh_pr` with `action`: create, list, view, checks, merge, comment, close, reopen, review, diff.
+- `gh_pr` with `action`: create, list, view, comments, checks, merge, comment, close, reopen, review, diff.
 - `gh_issue` with `action`: create, list, view, comment, close, reopen.
 - `gh_run` with `action`: list, view, rerun.
 - `gh_workflow` with `action`: list, trigger.
@@ -39,10 +39,11 @@ Hold on every run:
 2. Complete the `diffview_review` human gate and receive explicit approval.
 3. Recheck the approved diff and the authenticated user's open PRs.
 4. Open PR: `gh_pr` with `action: create`.
-2. Check CI: `gh_pr` with `action: checks`.
-3. Review or comment: `gh_pr` with `action: review` / `action: comment`.
-4. Merge: `gh_pr` with `action: merge`.
-5. **Completion:** PR URL is returned and the branch is merged.
+5. Check CI: `gh_pr` with `action: checks`.
+6. Fetch review feedback: `gh_pr` with `action: comments` (optionally filter by `author`).
+7. Review or comment: `gh_pr` with `action: review` / `action: comment`.
+8. Merge: `gh_pr` with `action: merge`.
+9. **Completion:** PR URL is returned and the branch is merged.
 
 ### Inspect CI
 1. List runs: `gh_run` with `action: list`.
@@ -66,6 +67,7 @@ Hold on every run:
 - `gh_pr` with `action: create` — create a PR from the current branch.
 - `gh_pr` with `action: list` — list PRs with filters.
 - `gh_pr` with `action: view` — read a PR by number, branch, or URL.
+- `gh_pr` with `action: comments` — fetch all conversation comments, review summaries, and inline review comments. Pass a numeric PR `number` or PR URL; use `author` to filter bot feedback such as Copilot or CodeRabbit.
 - `gh_pr` with `action: checks` — list CI status checks for a PR.
 - `gh_pr` with `action: merge` — merge a PR (`merge`, `squash`, `rebase`) or enable auto-merge.
 - `gh_pr` with `action: comment` — add a comment to a PR.

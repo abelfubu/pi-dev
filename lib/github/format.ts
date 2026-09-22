@@ -49,6 +49,61 @@ export function formatPrList(prs: any[]): string {
   return lines.join("\n");
 }
 
+export interface PrComments {
+  conversation: any[];
+  reviews: any[];
+  reviewComments: any[];
+}
+
+function formatComment(
+  comment: any,
+  location?: string,
+): string[] {
+  const author = comment.user?.login ?? comment.author?.login ?? "?";
+  const id = comment.id ?? "?";
+  const date = comment.created_at ?? comment.submitted_at ?? comment.createdAt ?? "?";
+  const url = comment.html_url ?? comment.url;
+  const header = [`- **@${author}** (${date}) [id: ${id}]`];
+  if (location) header[0] += ` — \`${location}\``;
+  if (url) header[0] += ` — ${url}`;
+  header.push("", String(comment.body ?? "").trim() || "_(No body)_");
+  return header;
+}
+
+export function formatPrComments(comments: PrComments): string {
+  const conversation = comments.conversation ?? [];
+  const reviews = (comments.reviews ?? []).filter((review) => review.body?.trim());
+  const reviewComments = comments.reviewComments ?? [];
+  if (conversation.length === 0 && reviews.length === 0 && reviewComments.length === 0) {
+    return "No PR comments found.";
+  }
+
+  const lines: string[] = [];
+  if (conversation.length > 0) {
+    lines.push("## Conversation comments", "");
+    for (const comment of conversation) {
+      lines.push(...formatComment(comment), "");
+    }
+  }
+  if (reviews.length > 0) {
+    lines.push("## Review summaries", "");
+    for (const review of reviews) {
+      const state = review.state ? `review: ${review.state}` : undefined;
+      lines.push(...formatComment(review, state), "");
+    }
+  }
+  if (reviewComments.length > 0) {
+    lines.push("## Inline review comments", "");
+    for (const comment of reviewComments) {
+      const line = comment.line ?? comment.original_line;
+      const location = `${comment.path ?? "?"}${line ? `:${line}` : ""}`;
+      lines.push(...formatComment(comment, location), "");
+    }
+  }
+
+  return lines.join("\n").trimEnd();
+}
+
 export function formatChecks(checks: any[], exitCode: number): string {
   if (!Array.isArray(checks) || checks.length === 0) {
     return exitCode === 8 ? "Checks are pending." : "No checks found.";
