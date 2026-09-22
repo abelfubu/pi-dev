@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,10 +16,19 @@ function text(text: string) {
 }
 
 export default function (pi: ExtensionAPI) {
+	const backgroundRuns = new Map<string, AbortController>();
+	let sessionActive = true;
+
+	pi.on("session_shutdown", () => {
+		sessionActive = false;
+		for (const controller of backgroundRuns.values()) controller.abort();
+		backgroundRuns.clear();
+	});
+
 	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
-		description: "Run one scoped subagent Slice. Headless execution is the default; use backend=herdr only for interactive inspection. Coder calls require an implementation plan.",
+		description: "Start one scoped subagent Slice. Headless background execution is the default: it returns a job ID immediately and delivers completion with the next user prompt. Use backend=herdr only for interactive inspection. Coder calls require an implementation plan.",
 		parameters: SubagentParams,
 		async execute(id, params: SubagentInvocation, signal, onUpdate, ctx) {
 			const cwd = resolve(params.cwd ?? ctx.cwd ?? process.cwd());
@@ -61,34 +71,66 @@ export default function (pi: ExtensionAPI) {
 				implementationPlan: params.implementationPlan,
 			}), "utf8");
 
-			try {
-				const config = await loadConfig(cwd).catch(() => ({ subagentDefaults: undefined }));
-				const result = await runHeadlessSubagent({
-					cwd,
-					profile,
-					model: execution.model,
-					thinking: execution.thinking,
-					files,
-					promptFile,
-					signal,
-					timeoutMs: profile.timeoutMs,
-					maxConcurrency: config.subagentDefaults?.maxConcurrency ?? 4,
-					onUpdate: (partial) => onUpdate?.({
-						content: [text(`Running ${profile.name} · ${partial.model ?? "default model"} · ${partial.usage.turns} turns · ${partial.usage.input} input · ${partial.usage.output} output tokens`) ],
-						details: partial,
-					}),
-				});
-				const usageSummary = `${profile.name}: ${result.status} · ${result.model ?? "default model"} · thinking: ${result.thinking ?? "default"} · ${result.usage.turns} turns · ${result.usage.input} input · ${result.usage.output} output · ${result.usage.cacheRead} cache-read tokens${result.usage.cost ? ` · $${result.usage.cost.toFixed(4)}` : ""}`;
-				ctx.ui.notify(usageSummary, result.status === "completed" ? "info" : "warning");
-				const output = result.output ? truncateUtf8(result.output) : result.error ?? "Subagent failed without output.";
-				return {
-					content: [text(output)],
-					details: { ...result, backend: "headless", profile: profile.name },
-					...(result.status === "completed" ? {} : { isError: true as const }),
-				};
-			} finally {
+			const config = await loadConfig(cwd).catch(() => ({ subagentDefaults: undefined }));
+			if (!sessionActive || signal?.aborted) {
 				await rm(tempDir, { recursive: true, force: true });
+				throw new Error("Subagent launch aborted before the background job started.");
 			}
+
+			const jobId = randomUUID();
+			const controller = new AbortController();
+			backgroundRuns.set(jobId, controller);
+
+			const deliver = (content: string, details: Record<string, unknown>, summary: string, level: "info" | "warning") => {
+				if (!sessionActive) return;
+				try {
+					ctx.ui.notify(summary, level);
+					pi.sendMessage({ customType: "subagent-result", content, display: true, details }, { deliverAs: "nextTurn" });
+				} catch (error) {
+					console.error(`Could not deliver subagent job ${jobId}:`, error);
+				}
+			};
+
+			void (async () => {
+				try {
+					const result = await runHeadlessSubagent({
+						cwd,
+						profile,
+						model: execution.model,
+						thinking: execution.thinking,
+						files,
+						promptFile,
+						signal: controller.signal,
+						timeoutMs: profile.timeoutMs,
+						maxConcurrency: config.subagentDefaults?.maxConcurrency ?? 4,
+					});
+					const usageSummary = `${profile.name}: ${result.status} · ${result.model ?? "default model"} · thinking: ${result.thinking ?? "default"} · ${result.usage.turns} turns · ${result.usage.input} input · ${result.usage.output} output · ${result.usage.cacheRead} cache-read tokens${result.usage.cost ? ` · $${result.usage.cost.toFixed(4)}` : ""}`;
+					const output = result.output ? truncateUtf8(result.output) : result.error ?? "Subagent failed without output.";
+					deliver(
+						`Subagent job ${jobId} (${profile.name}) ${result.status}.\n\n${output}`,
+						{ ...result, backend: "headless", profile: profile.name, jobId },
+						usageSummary,
+						result.status === "completed" ? "info" : "warning",
+					);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					deliver(
+						`Subagent job ${jobId} (${profile.name}) failed.\n\n${message}`,
+						{ backend: "headless", profile: profile.name, jobId, status: "failed", error: message },
+						`${profile.name}: failed · ${message}`,
+						"warning",
+					);
+				} finally {
+					backgroundRuns.delete(jobId);
+					await rm(tempDir, { recursive: true, force: true }).catch((error) => {
+						console.error(`Could not clean up subagent job ${jobId}:`, error);
+					});
+				}
+			})();
+			return {
+				content: [text(`Started headless subagent job ${jobId} (${profile.name}). It will run in the background and deliver its result with the next user prompt.`)],
+				details: { backend: "headless", profile: profile.name, jobId, status: "running" },
+			};
 		},
 	});
 }

@@ -103,7 +103,7 @@ Profiles can restrict what a subagent session loads, keeping its context lean:
 | `skills` | Explicit skill paths. Headless runs disable skill discovery. |
 | `promptTemplates` | Explicit prompt-template paths. Headless runs disable template discovery. |
 
-Headless runs also use `--no-session` and return the final assistant response directly. Built-in defaults:
+Headless runs also use `--no-session`. They return a Job ID immediately, notify on completion, and queue the final assistant response for delivery with the next user Prompt. Built-in defaults:
 
 - `reviewer` / `scout` — read-only tools (`read`, `bash`, `grep`, `find`, `ls`, `subagent_notify`), no skills, no prompt templates.
 - `coder` — editing tools plus the `code_check*` tools and the package's `check` skill; no prompt templates.
@@ -128,13 +128,13 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 
 | Tool | Purpose |
 |------|---------|
-| `subagent` | Run a scoped headless subagent, or launch one in Herdr when explicitly requested. |
+| `subagent` | Start a scoped background headless subagent, or launch one in Herdr when explicitly requested. |
 
-`subagent` runs an isolated `pi --mode json -p` subprocess and waits for its structured completion by default. The harness captures final output and token usage, forwards cancellation, limits concurrent runs, serializes writers sharing a working directory, caps model-visible output at 50 KB, and persists failed JSONL transcripts for seven days under `~/.pi/agent/pi-dev/subagent-runs/`.
+`subagent` starts an isolated `pi --mode json -p` subprocess and returns a Job ID immediately. The harness captures final output and token usage, shows a completion notification, and queues the Subagent Result with `deliverAs: "nextTurn"`, so it does not submit or replace text currently being typed. It also aborts active Jobs on session shutdown, limits concurrent runs, serializes writers sharing a working directory, caps model-visible output at 50 KB, and persists failed JSONL transcripts for seven days under `~/.pi/agent/pi-dev/subagent-runs/`.
 
 Every `coder` launch requires an `implementationPlan` containing the change intent plus concrete modifications and additions. Modification/addition entries identify files and relevant interfaces, functions, or symbols. The plan is rendered before the coder task.
 
-Pass `backend: "herdr"` for asynchronous interactive inspection. Its optional `title` sets the pane/tab label; otherwise a compact label is derived from the task, profile, and working directory. Herdr launches retain the result-artifact and notification protocol.
+Pass `backend: "herdr"` for interactive inspection in a pane or tab. Its optional `title` sets the pane/tab label; otherwise a compact label is derived from the task, profile, and working directory. Herdr launches retain the result-artifact and notification protocol.
 
 ### Herdr
 

@@ -130,8 +130,12 @@ A named configuration that defines a subagent's execution backend, model, thinki
 _Avoid_: agent template, role, specialization.
 
 **Headless Execution**:
-Awaited execution of a subagent in an isolated `pi` subprocess without a Herdr pane. Its result and usage return directly through the originating tool call.
-_Avoid_: background execution, detached execution, hidden handoff.
+Background execution of a subagent in an isolated `pi` subprocess without a Herdr pane. The originating tool call returns a Job ID immediately; completion is delivered with the next user Prompt so it cannot interrupt an in-progress draft.
+_Avoid_: handoff, hidden handoff.
+
+**Subagent Job**:
+A Headless Execution tracked by a unique Job ID from launch until completion or session shutdown.
+_Avoid_: process, worker, task.
 
 **Prompt**:
 The markdown instructions supplied to a subagent when a slice starts.
