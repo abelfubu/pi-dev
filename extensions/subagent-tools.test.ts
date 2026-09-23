@@ -22,7 +22,7 @@ describe("subagent tool registration", () => {
 		expect(registerTool.mock.calls[0][0].name).toBe("subagent");
 	});
 
-	it("returns immediately and displays a headless result when the editor is empty", async () => {
+	it("returns immediately and triggers an agent follow-up when the editor is empty", async () => {
 		const cwd = await mkdtemp(join(tmpdir(), "subagent-tool-test-"));
 		tempDirs.push(cwd);
 		let finish!: (result: headlessRunner.HeadlessSubagentResult) => void;
@@ -60,7 +60,7 @@ describe("subagent tool registration", () => {
 		await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
 		expect(sendMessage.mock.calls[0][0]).toMatchObject({ customType: "subagent-result", display: true });
 		expect(sendMessage.mock.calls[0][0].content).toContain("review complete");
-		expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: false });
+		expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: true, deliverAs: "followUp" });
 		expect(notify).toHaveBeenCalledWith(expect.stringContaining("completed"), "info");
 		await vi.waitFor(() => expect(existsSync(promptFile)).toBe(false));
 	});
@@ -104,9 +104,10 @@ describe("subagent tool registration", () => {
 		});
 		await vi.waitFor(() => expect(setWidget).toHaveBeenLastCalledWith("subagent-jobs", undefined));
 		expect(sendMessage).toHaveBeenCalledTimes(1);
+		expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: true, deliverAs: "followUp" });
 	});
 
-	it("queues a headless result for the next turn when the editor contains a draft", async () => {
+	it("feeds the result to the agent without submitting an editor draft", async () => {
 		const cwd = await mkdtemp(join(tmpdir(), "subagent-draft-test-"));
 		tempDirs.push(cwd);
 		vi.spyOn(headlessRunner, "runHeadlessSubagent").mockResolvedValue({
@@ -129,7 +130,7 @@ describe("subagent tool registration", () => {
 		});
 
 		await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
-		expect(sendMessage.mock.calls[0][1]).toEqual({ deliverAs: "nextTurn" });
+		expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: true, deliverAs: "followUp" });
 	});
 
 	it("aborts active headless jobs on session shutdown without delivering them", async () => {

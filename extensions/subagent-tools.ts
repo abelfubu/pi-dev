@@ -43,7 +43,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
-		description: "Start one scoped subagent Slice. Headless background execution is the default: it returns a job ID immediately and displays completion when ready unless an editor draft must be preserved. Use backend=herdr only for interactive inspection. Coder calls require an implementation plan.",
+		description: "Start one scoped subagent Slice. Headless background execution is the default: it returns a job ID immediately and feeds completion back to the agent without submitting editor drafts. Use backend=herdr only for interactive inspection. Coder calls require an implementation plan.",
 		parameters: SubagentParams,
 		async execute(id, params: SubagentInvocation, signal, onUpdate, ctx) {
 			const cwd = resolve(params.cwd ?? ctx.cwd ?? process.cwd());
@@ -104,12 +104,9 @@ export default function (pi: ExtensionAPI) {
 				if (!sessionActive) return;
 				try {
 					ctx.ui.notify(summary, level);
-					const hasEditorDraft = ctx.mode === "tui"
-						&& typeof ctx.ui.getEditorText === "function"
-						&& ctx.ui.getEditorText().trim().length > 0;
 					pi.sendMessage(
 						{ customType: "subagent-result", content, display: true, details },
-						hasEditorDraft ? { deliverAs: "nextTurn" } : { triggerTurn: false },
+						{ triggerTurn: true, deliverAs: "followUp" },
 					);
 				} catch (error) {
 					console.error(`Could not deliver subagent job ${jobId}:`, error);
@@ -167,7 +164,7 @@ export default function (pi: ExtensionAPI) {
 				}
 			})();
 			return {
-				content: [text(`Started headless subagent job ${jobId} (${profile.name}). It will run in the background and display its result when ready.`)],
+				content: [text(`Started headless subagent job ${jobId} (${profile.name}). It will run in the background and feed its result back to the agent when ready.`)],
 				details: { backend: "headless", profile: profile.name, jobId, status: "running" },
 			};
 		},
