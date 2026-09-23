@@ -41,6 +41,31 @@ The `codeChecks` key optionally replaces auto-discovery with arbitrary repositor
 
 Without configuration, exact `check`, `lint`, `typecheck`, and `test` scripts are discovered from the root `package.json` and run through the repository's package manager. Root Cargo projects also expose check, clippy, and test commands. Installed dependencies alone are not treated as checks.
 
+### jira
+
+Project-localized Jira issue types can be exposed through stable semantic aliases:
+
+```json
+{
+  "jira": {
+    "projects": {
+      "ITA": {
+        "issueTypes": {
+          "story": "Historia",
+          "task": "Tarea",
+          "subtask": "Subtarea",
+          "bug": "Error"
+        }
+      }
+    }
+  }
+}
+```
+
+The `jira` create action accepts either an alias or the exact Jira issue type name. It validates the resolved name against the project's current issue types before creating the work item. `epic` and `subtask` can also be discovered from Jira's hierarchy metadata.
+
+Search fields unsupported by ACLI, such as `parent`, are fetched transparently through follow-up work item views.
+
 ### subagentDefaults
 
 Use `subagentDefaults` to set execution defaults for every profile. Headless execution is the default. Per-profile values and tool-call overrides take precedence.
@@ -130,7 +155,7 @@ Example: give the coder a different model and add a custom skill (overriding `sk
 |------|---------|
 | `subagent` | Start a scoped background headless subagent, or launch one in Herdr when explicitly requested. |
 
-`subagent` starts an isolated `pi --mode json -p` subprocess and returns a Job ID immediately. The harness captures final output and token usage, shows a completion notification, and queues the Subagent Result with `deliverAs: "nextTurn"`, so it does not submit or replace text currently being typed. It also aborts active Jobs on session shutdown, limits concurrent runs, serializes writers sharing a working directory, caps model-visible output at 50 KB, and persists failed JSONL transcripts for seven days under `~/.pi/agent/pi-dev/subagent-runs/`.
+`subagent` starts an isolated `pi --mode json -p` subprocess and returns a Job ID immediately. The harness captures final output and token usage and shows a completion notification. With an empty editor, the Subagent Result is displayed immediately without triggering an agent turn; with a draft in progress, it is queued with `deliverAs: "nextTurn"` so the draft is preserved. It also aborts active Jobs on session shutdown, limits concurrent runs, serializes writers sharing a working directory, caps model-visible output at 50 KB, and persists failed JSONL transcripts for seven days under `~/.pi/agent/pi-dev/subagent-runs/`.
 
 Every `coder` launch requires an `implementationPlan` containing the change intent plus concrete modifications and additions. Modification/addition entries identify files and relevant interfaces, functions, or symbols. The plan is rendered before the coder task.
 

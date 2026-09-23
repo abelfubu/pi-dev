@@ -7,7 +7,95 @@ import {
 	formatTransitions,
 	markdownToAdf,
 } from "../lib/format.js";
+import { loadConfig } from "../lib/config.js";
 import { runAcliJson } from "../lib/runner.js";
+
+const REJECTED_SEARCH_FIELD = /field '([^']+)' is not allowed/i;
+
+function splitFields(fields: string): string[] {
+	return fields.split(",").map((field) => field.trim()).filter(Boolean);
+}
+
+function normalizeIssueType(value: string): string {
+	return value.trim().toLocaleLowerCase().replace(/[\s_-]+/g, "-");
+}
+
+async function enrichSearchIssues(issues: any[], fields: string[]): Promise<any[]> {
+	if (fields.length === 0 || issues.length === 0) return issues;
+	const enriched: any[] = [];
+	for (let index = 0; index < issues.length; index += 5) {
+		const batch = issues.slice(index, index + 5);
+		enriched.push(...await Promise.all(batch.map(async (issue) => {
+			const detail = await runAcliJson([
+				"jira", "workitem", "view", issue.key, "--fields", ["key", ...fields].join(","),
+			]);
+			return {
+				...issue,
+				...(detail as any),
+				fields: { ...issue.fields, ...(detail as any)?.fields },
+			};
+		})));
+	}
+	return enriched;
+}
+
+async function searchIssues(params: any): Promise<any[]> {
+	let fields = splitFields(params.fields ?? "key,summary,status,issuetype");
+	const rejectedFields: string[] = [];
+
+	for (;;) {
+		try {
+			const output = await runAcliJson([
+				"jira", "workitem", "search",
+				"--jql", params.jql,
+				"--limit", String(params.limit ?? 20),
+				"--fields", fields.join(",") || "key",
+			]);
+			const issues = Array.isArray(output) ? output : (output as any).issues ?? [];
+			return enrichSearchIssues(issues, rejectedFields);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			const rejected = message.match(REJECTED_SEARCH_FIELD)?.[1];
+			const index = rejected
+				? fields.findIndex((field) => field.toLocaleLowerCase() === rejected.toLocaleLowerCase())
+				: -1;
+			if (index < 0) throw error;
+			rejectedFields.push(fields[index]);
+			fields.splice(index, 1);
+		}
+	}
+}
+
+async function resolveIssueType(project: string, requestedType: string, cwd: string): Promise<string> {
+	const config = await loadConfig(cwd);
+	const aliases = config.jira?.projects?.[project]?.issueTypes ?? {};
+	const normalizedRequested = normalizeIssueType(requestedType);
+	const configured = Object.entries(aliases).find(
+		([alias]) => normalizeIssueType(alias) === normalizedRequested,
+	)?.[1];
+	const candidate = configured ?? requestedType;
+
+	const output = await runAcliJson(["jira", "project", "view", "--key", project]);
+	const issueTypes = Array.isArray((output as any).issueTypes) ? (output as any).issueTypes : [];
+	const exact = issueTypes.find(
+		(issueType: any) => normalizeIssueType(issueType.name ?? "") === normalizeIssueType(candidate),
+	);
+	if (exact?.name) return exact.name;
+
+	const structural = issueTypes.find((issueType: any) =>
+		(normalizedRequested === "subtask" || normalizedRequested === "sub-task")
+			? issueType.subtask === true
+			: normalizedRequested === "epic" && issueType.hierarchyLevel > 0,
+	);
+	if (structural?.name) return structural.name;
+
+	const configuredAliases = Object.keys(aliases).join(", ") || "none";
+	const allowedTypes = issueTypes.map((issueType: any) => issueType.name).filter(Boolean).join(", ") || "unknown";
+	throw new Error(
+		`Unknown Jira issue type "${requestedType}" for ${project}. ` +
+		`Configured aliases: ${configuredAliases}. Jira types: ${allowedTypes}`,
+	);
+}
 
 const JiraAction = Type.Union([
 	Type.Literal("search"),
@@ -52,7 +140,7 @@ export default function (pi: ExtensionAPI) {
 				Type.String({ description: "Project key, e.g. ITA (create)" }),
 			),
 			type: Type.Optional(
-				Type.String({ description: "Issue type, e.g. Task, Story, Bug (create)" }),
+				Type.String({ description: "Issue type name or configured semantic alias, e.g. task, story, bug, subtask (create)" }),
 			),
 			summary: Type.Optional(
 				Type.String({ description: "Issue summary (create/update)" }),
@@ -79,7 +167,7 @@ export default function (pi: ExtensionAPI) {
 				Type.String({ description: "Markdown comment body (comment)" }),
 			),
 		}),
-		async execute(_id, params, _signal, _onUpdate, _ctx) {
+		async execute(_id, params, _signal, _onUpdate, ctx) {
 			try {
 				const action = params.action as string;
 
@@ -91,18 +179,7 @@ export default function (pi: ExtensionAPI) {
 							details: {},
 						};
 					}
-					const output = await runAcliJson([
-						"jira",
-						"workitem",
-						"search",
-						"--jql",
-						params.jql,
-						"--limit",
-						String(params.limit ?? 20),
-						"--fields",
-						params.fields ?? "key,summary,status,issuetype",
-					]);
-					const issues = (output as any).issues ?? [];
+					const issues = await searchIssues(params);
 					return {
 						content: [{ type: "text", text: formatIssueList(issues) }],
 						details: { issues },
@@ -155,6 +232,11 @@ export default function (pi: ExtensionAPI) {
 							details: {},
 						};
 					}
+					const issueType = await resolveIssueType(
+						params.project,
+						params.type,
+						ctx?.cwd ?? process.cwd(),
+					);
 					const args = [
 						"jira",
 						"workitem",
@@ -162,7 +244,7 @@ export default function (pi: ExtensionAPI) {
 						"--project",
 						params.project,
 						"--type",
-						params.type,
+						issueType,
 						"--summary",
 						params.summary,
 					];

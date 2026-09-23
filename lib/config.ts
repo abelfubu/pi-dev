@@ -43,8 +43,18 @@ export interface CodeCheckCommandConfig {
 
 export type CodeCheckConfig = Record<string, string | CodeCheckCommandConfig>;
 
+export interface JiraProjectConfig {
+  /** Stable aliases mapped to the project-localized Jira issue type names. */
+  issueTypes?: Record<string, string>;
+}
+
+export interface JiraConfig {
+  projects?: Record<string, JiraProjectConfig>;
+}
+
 export interface PiDevConfig {
   codeChecks?: CodeCheckConfig;
+  jira?: JiraConfig;
   subagentDefaults?: SubagentDefaultsConfig;
   subagents?: Record<string, SubagentProfileConfig>;
   [key: string]: unknown;

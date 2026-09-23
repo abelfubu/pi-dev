@@ -22,7 +22,7 @@ describe("subagent tool registration", () => {
 		expect(registerTool.mock.calls[0][0].name).toBe("subagent");
 	});
 
-	it("returns immediately and delivers a headless result with the next user prompt", async () => {
+	it("returns immediately and displays a headless result when the editor is empty", async () => {
 		const cwd = await mkdtemp(join(tmpdir(), "subagent-tool-test-"));
 		tempDirs.push(cwd);
 		let finish!: (result: headlessRunner.HeadlessSubagentResult) => void;
@@ -38,7 +38,11 @@ describe("subagent tool registration", () => {
 		const tool = registerTool.mock.calls[0][0];
 		const notify = vi.fn();
 
-		const launch = await tool.execute("call-1", { profile: "reviewer", task: "Review it", cwd }, undefined, undefined, { cwd, ui: { notify } });
+		const launch = await tool.execute("call-1", { profile: "reviewer", task: "Review it", cwd }, undefined, undefined, {
+			cwd,
+			mode: "tui",
+			ui: { notify, getEditorText: () => "" },
+		});
 
 		expect(launch.details).toMatchObject({ backend: "headless", profile: "reviewer", status: "running" });
 		expect(launch.content[0].text).toContain("run in the background");
@@ -56,9 +60,35 @@ describe("subagent tool registration", () => {
 		await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
 		expect(sendMessage.mock.calls[0][0]).toMatchObject({ customType: "subagent-result", display: true });
 		expect(sendMessage.mock.calls[0][0].content).toContain("review complete");
-		expect(sendMessage.mock.calls[0][1]).toEqual({ deliverAs: "nextTurn" });
+		expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: false });
 		expect(notify).toHaveBeenCalledWith(expect.stringContaining("completed"), "info");
 		await vi.waitFor(() => expect(existsSync(promptFile)).toBe(false));
+	});
+
+	it("queues a headless result for the next turn when the editor contains a draft", async () => {
+		const cwd = await mkdtemp(join(tmpdir(), "subagent-draft-test-"));
+		tempDirs.push(cwd);
+		vi.spyOn(headlessRunner, "runHeadlessSubagent").mockResolvedValue({
+			status: "completed",
+			output: "review complete",
+			model: "test/model",
+			usage: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1, contextTokens: 3 },
+			exitCode: 0,
+			messages: [],
+		});
+		const registerTool = vi.fn();
+		const sendMessage = vi.fn();
+		registerSubagentTools({ registerTool, sendMessage, on: vi.fn() } as never);
+		const tool = registerTool.mock.calls[0][0];
+
+		await tool.execute("call-draft", { profile: "reviewer", task: "Review it", cwd }, undefined, undefined, {
+			cwd,
+			mode: "tui",
+			ui: { notify: vi.fn(), getEditorText: () => "unfinished prompt" },
+		});
+
+		await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+		expect(sendMessage.mock.calls[0][1]).toEqual({ deliverAs: "nextTurn" });
 	});
 
 	it("aborts active headless jobs on session shutdown without delivering them", async () => {

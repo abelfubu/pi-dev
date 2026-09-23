@@ -39,6 +39,7 @@ The Jira tools track work items through their lifecycle: find, create, update, m
 ## Conventions
 
 - Descriptions and comments are written in Markdown; the extension converts them to Atlassian Document Format (ADF).
-- `project` is required when creating an issue. Always confirm it before calling `jira_create`.
+- `project` is required when creating an issue. Always confirm it before calling the `jira` create action.
+- Prefer semantic issue type aliases such as `task`, `story`, `bug`, and `subtask`. They are mapped to project-localized names through `pi-dev.json`; exact Jira names also work.
 - Use `@me` to assign an issue to the current user.
 - If a transition fails, call `jira_transitions` to show the exact status names.
