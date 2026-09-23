@@ -65,6 +65,47 @@ describe("subagent tool registration", () => {
 		await vi.waitFor(() => expect(existsSync(promptFile)).toBe(false));
 	});
 
+	it("shows live token usage for active jobs and clears it on completion", async () => {
+		const cwd = await mkdtemp(join(tmpdir(), "subagent-progress-test-"));
+		tempDirs.push(cwd);
+		let update!: (progress: headlessRunner.HeadlessSubagentProgress) => void;
+		let finish!: (result: headlessRunner.HeadlessSubagentResult) => void;
+		vi.spyOn(headlessRunner, "runHeadlessSubagent").mockImplementation((options) => {
+			update = options.onUpdate!;
+			return new Promise((resolve) => { finish = resolve; });
+		});
+		const registerTool = vi.fn();
+		const setWidget = vi.fn();
+		const sendMessage = vi.fn();
+		registerSubagentTools({ registerTool, sendMessage, on: vi.fn() } as never);
+		const tool = registerTool.mock.calls[0][0];
+
+		await tool.execute("call-progress", { profile: "reviewer", task: "Review it", cwd }, undefined, undefined, {
+			cwd,
+			mode: "tui",
+			ui: { notify: vi.fn(), setWidget, getEditorText: () => "" },
+		});
+		expect(setWidget).toHaveBeenCalledWith("subagent-jobs", [expect.stringContaining("0 turns")]);
+
+		update({
+			output: "working",
+			model: "test/model",
+			thinking: "high",
+			usage: { input: 100, output: 20, cacheRead: 40, cacheWrite: 0, cost: 0.0123, turns: 2, contextTokens: 140 },
+		});
+		expect(setWidget).toHaveBeenLastCalledWith("subagent-jobs", [expect.stringContaining("2 turns · 100 input · 20 output · 40 cache-read · $0.0123")]);
+		finish({
+			status: "completed",
+			output: "review complete",
+			model: "test/model",
+			usage: { input: 100, output: 20, cacheRead: 40, cacheWrite: 0, cost: 0.0123, turns: 2, contextTokens: 140 },
+			exitCode: 0,
+			messages: [],
+		});
+		await vi.waitFor(() => expect(setWidget).toHaveBeenLastCalledWith("subagent-jobs", undefined));
+		expect(sendMessage).toHaveBeenCalledTimes(1);
+	});
+
 	it("queues a headless result for the next turn when the editor contains a draft", async () => {
 		const cwd = await mkdtemp(join(tmpdir(), "subagent-draft-test-"));
 		tempDirs.push(cwd);

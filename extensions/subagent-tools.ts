@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { loadConfig } from "../lib/config.js";
 import { resolveSubagentExecution } from "../lib/subagent/config.js";
 import { buildHeadlessSubagentPrompt } from "../lib/subagent/prompt.js";
-import { runHeadlessSubagent, truncateUtf8 } from "../lib/subagent/headless-runner.js";
+import { runHeadlessSubagent, truncateUtf8, type HeadlessSubagentProgress } from "../lib/subagent/headless-runner.js";
 import type { SubagentInvocation } from "../lib/subagent/types.js";
 import { executeHerdrSubagent, loadSubagentProfiles, SubagentParams } from "./herdr-tools.js";
 
@@ -17,12 +17,27 @@ function text(text: string) {
 
 export default function (pi: ExtensionAPI) {
 	const backgroundRuns = new Map<string, AbortController>();
+	const jobProgress = new Map<string, { profile: string; model?: string; thinking?: string; progress?: HeadlessSubagentProgress; ui: { setWidget: (key: string, lines: string[] | undefined) => void } }>();
 	let sessionActive = true;
+
+	const renderJobs = () => {
+		const ui = jobProgress.values().next().value?.ui;
+		if (!ui) return;
+		const lines = [...jobProgress.entries()].map(([id, job]) => {
+			const progress = job.progress;
+			const usage = progress?.usage;
+			return `Subagent ${id.slice(0, 8)} · ${job.profile} · ${progress?.model ?? job.model ?? "default model"} · thinking: ${progress?.thinking ?? job.thinking ?? "default"} · ${usage?.turns ?? 0} turns · ${usage?.input ?? 0} input · ${usage?.output ?? 0} output · ${usage?.cacheRead ?? 0} cache-read${usage?.cost ? ` · $${usage.cost.toFixed(4)}` : ""}`;
+		});
+		ui.setWidget("subagent-jobs", lines.length > 4 ? [...lines.slice(0, 4), `+${lines.length - 4} more subagent jobs`] : lines);
+	};
 
 	pi.on("session_shutdown", () => {
 		sessionActive = false;
 		for (const controller of backgroundRuns.values()) controller.abort();
 		backgroundRuns.clear();
+		const ui = jobProgress.values().next().value?.ui;
+		jobProgress.clear();
+		ui?.setWidget("subagent-jobs", undefined);
 	});
 
 	pi.registerTool({
@@ -80,6 +95,10 @@ export default function (pi: ExtensionAPI) {
 			const jobId = randomUUID();
 			const controller = new AbortController();
 			backgroundRuns.set(jobId, controller);
+			if (ctx.mode === "tui" && typeof ctx.ui.setWidget === "function") {
+				jobProgress.set(jobId, { profile: profile.name, model: execution.model, thinking: execution.thinking, ui: ctx.ui });
+				renderJobs();
+			}
 
 			const deliver = (content: string, details: Record<string, unknown>, summary: string, level: "info" | "warning") => {
 				if (!sessionActive) return;
@@ -109,6 +128,14 @@ export default function (pi: ExtensionAPI) {
 						signal: controller.signal,
 						timeoutMs: profile.timeoutMs,
 						maxConcurrency: config.subagentDefaults?.maxConcurrency ?? 4,
+						onUpdate: (progress) => {
+							if (!sessionActive) return;
+							const job = jobProgress.get(jobId);
+							if (job) {
+								job.progress = progress;
+								renderJobs();
+							}
+						},
 					});
 					const usageSummary = `${profile.name}: ${result.status} · ${result.model ?? "default model"} · thinking: ${result.thinking ?? "default"} · ${result.usage.turns} turns · ${result.usage.input} input · ${result.usage.output} output · ${result.usage.cacheRead} cache-read tokens${result.usage.cost ? ` · $${result.usage.cost.toFixed(4)}` : ""}`;
 					const output = result.output ? truncateUtf8(result.output) : result.error ?? "Subagent failed without output.";
@@ -128,6 +155,12 @@ export default function (pi: ExtensionAPI) {
 					);
 				} finally {
 					backgroundRuns.delete(jobId);
+					const ui = jobProgress.get(jobId)?.ui;
+					jobProgress.delete(jobId);
+					if (sessionActive && ui) {
+						if (jobProgress.size) renderJobs();
+						else ui.setWidget("subagent-jobs", undefined);
+					}
 					await rm(tempDir, { recursive: true, force: true }).catch((error) => {
 						console.error(`Could not clean up subagent job ${jobId}:`, error);
 					});
