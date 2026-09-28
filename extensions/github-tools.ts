@@ -14,7 +14,7 @@ export default function (pi: ExtensionAPI) {
       return {
         block: true,
         reason:
-          "Direct `gh pr create` is blocked. Use the gh_pr tool so the one-open-PR-per-user policy is enforced.",
+          "Direct `gh pr create` is blocked. Use the gh_pr tool so the one-open-PR-per-orchestrator policy is enforced.",
       };
     }
 

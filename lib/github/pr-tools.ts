@@ -50,6 +50,17 @@ interface AuthoredPullRequest {
   number: number;
   title: string;
   url: string;
+  body?: string;
+}
+
+const ORCHESTRATOR_MARKER_PREFIX = "<!-- pi-orchestrator:";
+
+export function currentOrchestratorId(): string | undefined {
+  return process.env.PI_ORCHESTRATOR_ID ?? process.env.HERDR_PANE_ID ?? undefined;
+}
+
+export function orchestratorMarker(orchestratorId: string): string {
+  return `${ORCHESTRATOR_MARKER_PREFIX} ${orchestratorId} -->`;
 }
 
 type JsonRunner = (args: string[], cwd?: string) => Promise<unknown>;
@@ -110,6 +121,7 @@ export async function assertNoOpenPullRequestByCurrentUser(
     throw new Error("Subagents cannot create pull requests. The parent orchestrator owns shipping.");
   }
 
+  const orchestratorId = currentOrchestratorId();
   const args = [
     "pr",
     "list",
@@ -118,9 +130,9 @@ export async function assertNoOpenPullRequestByCurrentUser(
     "--author",
     "@me",
     "--limit",
-    "1",
+    "50",
     "--json",
-    "number,title,url",
+    "number,title,url,body",
   ];
   if (params.repo) args.push("--repo", params.repo);
 
@@ -129,10 +141,17 @@ export async function assertNoOpenPullRequestByCurrentUser(
     throw new Error("Unable to verify the current user's open pull requests.");
   }
 
-  const existing = result[0] as AuthoredPullRequest | undefined;
+  const pullRequests = result as AuthoredPullRequest[];
+  const existing = orchestratorId
+    ? pullRequests.find(
+        (pr) => typeof pr.body === "string" && pr.body.includes(orchestratorMarker(orchestratorId)),
+      )
+    : pullRequests[0];
   if (existing) {
     throw new Error(
-      `PR creation blocked: you already have open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`,
+      orchestratorId
+        ? `PR creation blocked: this orchestrator already has open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`
+        : `PR creation blocked: you already have open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`,
     );
   }
 }
@@ -211,8 +230,12 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
           throw new Error("title is required for create");
         }
         const args = ["pr", "create", "--title", params.title];
-        if (params.body) {
-          args.push("--body", params.body);
+        const orchestratorId = currentOrchestratorId();
+        const body = orchestratorId
+          ? [params.body, orchestratorMarker(orchestratorId)].filter(Boolean).join("\n\n")
+          : params.body;
+        if (body) {
+          args.push("--body", body);
         } else {
           args.push("--fill");
         }
