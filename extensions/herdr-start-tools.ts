@@ -49,6 +49,7 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
   pi.registerTool<typeof parameters, HerdrStartDetails>({
     name: "herdr_start",
     label: "Herdr Start",
+    exposure: "deferred",
     description:
       "Create a Herdr pane or popup and run an arbitrary shell command in it, with optional focus, zoom, or popup.",
     promptSnippet: "Start a command in a new Herdr pane or popup with optional focus, zoom, or popup",

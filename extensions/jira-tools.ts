@@ -112,6 +112,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "jira",
 		label: "Jira",
+		exposure: "deferred",
 		description: "Perform a Jira work item operation: search, view, create, update, transition, transitions, comment, or projects",
 		parameters: Type.Object({
 			action: JiraAction,

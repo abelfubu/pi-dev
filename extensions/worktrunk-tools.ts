@@ -34,6 +34,7 @@ export default function registerWorktrunkTools(pi: ExtensionAPI) {
 	pi.registerTool<typeof parameters, WorktrunkToolDetails>({
 		name: "worktrunk",
 		label: "Worktrunk",
+		exposure: "deferred",
 		description:
 			"Create, list, or safely remove Git worktrees through Worktrunk. Creation runs approved lifecycle hooks before returning.",
 		promptSnippet: "Manage deterministic agent worktrees through Worktrunk",

@@ -27,6 +27,7 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
   pi.registerTool<typeof parameters, DiffviewToolDetails>({
     name: "diffview_review",
     label: "Diffview Review",
+    exposure: "deferred",
     description: "Open an exact local diff in Neovim Diffview in a focused full-screen Herdr popup.",
     promptSnippet: "Open a deterministic local diff in Neovim Diffview",
     promptGuidelines: [

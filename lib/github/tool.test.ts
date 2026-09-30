@@ -78,6 +78,13 @@ describe("registerGhActionTool", () => {
     expect(tool.description).toBe("Sample tool");
   });
 
+  it("registers gh_* tools with deferred exposure so they activate via tool_search", () => {
+    const api = createMockApi();
+    registerGhActionTool(api, createConfig());
+
+    expect(api.getTool("gh_sample").exposure).toBe("deferred");
+  });
+
   it("dispatches to the handler matching params.action", async () => {
     const api = createMockApi();
     registerGhActionTool(api, createConfig());

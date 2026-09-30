@@ -9,6 +9,12 @@ import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { loadConfig, type PiDevConfig } from "../lib/config.js";
 import { closeHerdrPane, closeHerdrTab, createHerdrPane, notifyPane, runInPane, shellQuote } from "../lib/herdr.js";
+import {
+	isSubagentCompletionSent,
+	markSubagentCompletionSent,
+	notifySubagentParent,
+	resetSubagentCompletionSent,
+} from "../lib/subagent/notify.js";
 import type { ImplementationPlan, SubagentInvocation, SubagentProfile } from "../lib/subagent/types.js";
 
 function textContent(text: string): { type: "text"; text: string } {
@@ -181,6 +187,11 @@ function buildPiArgs(params: {
 }): string[] {
 	const { profile, model, thinking, files, promptFile, cwd } = params;
 	const args = buildPiLaunchArgs(model, thinking);
+	// Subagents must not inherit orchestrator-only extension tools (jira,
+	// gh_pr, github_watch, worktrunk, ...). Disable extension discovery and
+	// load only the explicit profile extensions plus the completion notifier.
+	args.push("--no-extensions");
+	args.push("--extension", join(REPO_ROOT, "extensions", "subagent-notify-tools.ts"));
 	if (profile.tools) {
 		const tools = profile.tools.includes("subagent_notify")
 			? profile.tools
@@ -224,7 +235,6 @@ let notifySocketPromise: Promise<string | null> | null = null;
 let notifySocketServer: net.Server | null = null;
 let notifySocketDir: string | null = null;
 let notifySocketPath: string | null = null;
-let subagentCompletionSent = false;
 const completedLaunches = new Set<string>();
 
 function ensureNotifySocket(pi?: ExtensionAPI): Promise<string | null> {
@@ -358,53 +368,6 @@ function respond(conn: net.Socket, obj: unknown) {
 		conn.end();
 	}
 }
-
-function sendNotifyMessage(socketPath: string, message: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const conn = net.createConnection(socketPath);
-		let response = "";
-		let settled = false;
-
-		const timeout = setTimeout(() => {
-			if (settled) return;
-			settled = true;
-			conn.destroy();
-			reject(new Error("Notify socket timeout"));
-		}, 5000);
-
-		conn.on("connect", () => {
-			conn.write(message + "\n");
-		});
-
-		conn.on("data", (data) => {
-			response += data.toString();
-		});
-
-		conn.on("end", () => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeout);
-			try {
-				const parsed = JSON.parse(response.trim().split("\n")[0] ?? "{}");
-				if (parsed.ok === false) {
-					reject(new Error(parsed.error ?? "Notify failed"));
-				} else {
-					resolve();
-				}
-			} catch {
-				resolve();
-			}
-		});
-
-		conn.on("error", (err) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeout);
-			reject(err);
-		});
-	});
-}
-
 function assistantMessageText(message: unknown): string | undefined {
 	if (!message || typeof message !== "object") return undefined;
 	const candidate = message as { role?: unknown; content?: unknown };
@@ -448,43 +411,6 @@ function completionSummary(text: string | undefined, fallback: string): string {
 	const firstLine = text?.split("\n").map((line) => line.trim()).find(Boolean);
 	return sanitizeLabel(firstLine ?? fallback, 160);
 }
-
-async function notifySubagentParent(params: {
-	type: "done" | "failed";
-	resultFile: string;
-	launchId?: string;
-	paneId?: string;
-	summary: string;
-	parentPaneId?: string;
-	socketPath?: string;
-}): Promise<{ transport: "socket" | "herdr"; socketError?: string }> {
-	const message = JSON.stringify({
-		type: params.type,
-		resultFile: params.resultFile,
-		launchId: params.launchId,
-		paneId: params.paneId,
-		summary: params.summary,
-	});
-
-	if (params.socketPath) {
-		try {
-			await sendNotifyMessage(params.socketPath, message);
-			return { transport: "socket" };
-		} catch (err) {
-			const socketError = err instanceof Error ? err.message : String(err);
-			if (!params.parentPaneId) throw new Error(`Socket notify failed and no Herdr parent pane id: ${socketError}`);
-			await notifyPane(params.parentPaneId, `subagent ${params.type}: ${params.resultFile} (${params.summary})`);
-			return { transport: "herdr", socketError };
-		}
-	}
-
-	if (!params.parentPaneId) {
-		throw new Error("Missing parent pane id and notify socket.");
-	}
-	await notifyPane(params.parentPaneId, `subagent ${params.type}: ${params.resultFile} (${params.summary})`);
-	return { transport: "herdr" };
-}
-
 function buildSubagentPrompt(params: {
 	task: string;
 	profile: string;
@@ -578,37 +504,6 @@ const SubagentParams = Type.Object({
 			Type.Literal("off"), Type.Literal("minimal"), Type.Literal("low"),
 			Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
 		], { description: "Thinking level override" }),
-	),
-});
-
-const SubagentNotifyParams = Type.Object({
-	type: Type.Optional(
-		Type.String({
-			description: "Notification type, e.g. done",
-		}),
-	),
-	parent_pane_id: Type.Optional(
-		Type.String({
-			description:
-				"Herdr pane ID of the parent session; falls back to SUBAGENT_PARENT_PANE_ID env var",
-		}),
-	),
-	result_file: Type.Optional(
-		Type.String({
-			description:
-				"Absolute path to the result file the subagent wrote; falls back to SUBAGENT_RESULT_FILE env var",
-		}),
-	),
-	launch_id: Type.Optional(
-		Type.String({
-			description:
-				"Unique subagent launch ID; falls back to SUBAGENT_LAUNCH_ID env var",
-		}),
-	),
-	summary: Type.Optional(
-		Type.String({
-			description: "One-line summary of the result",
-		}),
 	),
 });
 
@@ -801,7 +696,7 @@ export default function (pi: ExtensionAPI) {
 	notifySocketPath = null;
 	notifySocketPromise = null;
 	autoClosePanePromise = null;
-	subagentCompletionSent = false;
+	resetSubagentCompletionSent();
 	completedLaunches.clear();
 
 	if (process.env.HERDR_ENV !== "1") {
@@ -825,7 +720,7 @@ export default function (pi: ExtensionAPI) {
 			) => Promise<void>,
 		) => void;
 		onAgentSettled("agent_settled", async (_event, ctx) => {
-			if (subagentCompletionSent) return;
+			if (isSubagentCompletionSent()) return;
 			const finalText = latestAssistantText(ctx);
 			const fallback = finalText ?? "Subagent settled without a textual final response.";
 			try {
@@ -839,7 +734,7 @@ export default function (pi: ExtensionAPI) {
 					parentPaneId: process.env.SUBAGENT_PARENT_PANE_ID,
 					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
 				});
-				subagentCompletionSent = true;
+				markSubagentCompletionSent();
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				console.error(`Automatic subagent completion failed: ${message}`);
@@ -847,7 +742,7 @@ export default function (pi: ExtensionAPI) {
 		});
 
 		pi.on("session_shutdown", async (event, ctx) => {
-			if (subagentCompletionSent || event.reason !== "quit") return;
+			if (isSubagentCompletionSent() || event.reason !== "quit") return;
 			const finalText = latestAssistantText(ctx);
 			const fallback = finalText ?? "Subagent exited before reaching a settled completion state.";
 			try {
@@ -860,7 +755,7 @@ export default function (pi: ExtensionAPI) {
 					parentPaneId: process.env.SUBAGENT_PARENT_PANE_ID,
 					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
 				});
-				subagentCompletionSent = true;
+				markSubagentCompletionSent();
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				console.error(`Subagent shutdown notification failed: ${message}`);
@@ -871,6 +766,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "herdr_handoff",
 		label: "Herdr Handoff",
+		exposure: "deferred",
 		description:
 			"Open a new focused Herdr tab in the current workspace, start a fresh interactive pi session, and seed it with a prompt. Use when the user wants to hand off a slice of work to a separate interactive session, especially when they say things like 'hand off', 'new tab', or 'work on this in a fresh pi'.",
 		parameters: Type.Object({
@@ -967,6 +863,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "herdr_close",
 		label: "Herdr Close",
+		exposure: "deferred",
 		description:
 			"Close a Herdr pane or tab when it is no longer needed. Provide either pane or tab, not both.",
 		parameters: Type.Object({
@@ -1008,53 +905,6 @@ export default function (pi: ExtensionAPI) {
 					isError: true,
 					details: {},
 				};
-			}
-		},
-	});
-
-	pi.registerTool({
-		name: "subagent_notify",
-		label: "Subagent Notify",
-		description:
-			"Notify the parent session that this subagent has finished. Uses a unix socket if SUBAGENT_NOTIFY_SOCKET is set; otherwise falls back to Herdr pane notification.",
-		parameters: SubagentNotifyParams,
-		async execute(_id, params) {
-			const resultFile = params.result_file ?? process.env.SUBAGENT_RESULT_FILE;
-			const summary = params.summary ?? "done";
-			const type = params.type === "failed" ? "failed" : "done";
-
-			if (!resultFile) {
-				return errorResult(
-					"Missing result_file; no SUBAGENT_RESULT_FILE env var found either.",
-				);
-			}
-
-			try {
-				const result = await notifySubagentParent({
-					type,
-					resultFile,
-					launchId: params.launch_id ?? process.env.SUBAGENT_LAUNCH_ID,
-					paneId: process.env.HERDR_PANE_ID,
-					summary,
-					parentPaneId: params.parent_pane_id ?? process.env.SUBAGENT_PARENT_PANE_ID,
-					socketPath: process.env.SUBAGENT_NOTIFY_SOCKET,
-				});
-				subagentCompletionSent = true;
-				if (result.transport === "socket") {
-					return {
-						content: [textContent("Notified parent session via socket.")],
-						details: {},
-					};
-				}
-				return {
-					content: [textContent(result.socketError
-						? `Socket failed (${result.socketError}); notified parent pane via Herdr fallback.`
-						: "Notified parent pane via Herdr.")],
-					details: result.socketError ? { socketError: result.socketError } : {},
-				};
-			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
-				return errorResult(message);
 			}
 		},
 	});

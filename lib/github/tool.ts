@@ -38,6 +38,7 @@ export function registerGhActionTool<P extends Record<string, unknown>>(
     name: config.name,
     label: config.label,
     description: config.description,
+    exposure: "deferred",
     parameters: config.parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       try {

@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
 	assistantMessageText,
@@ -288,8 +289,9 @@ describe("buildPiArgs", () => {
 			promptFile: "/tmp/prompt.md",
 			cwd: "/repo",
 		});
+		expect(args).toContain("--no-extensions");
 		expect(args).toContain("--extension");
-		expect(args[args.indexOf("--extension") + 1]).toBe("/repo/extensions/code-check-tools.ts");
+		expect(args[args.lastIndexOf("--extension") + 1]).toBe("/repo/extensions/code-check-tools.ts");
 		expect(args).toContain("--no-skills");
 		expect(args).toContain("--skill");
 		expect(args[args.indexOf("--skill") + 1]).toBe("/repo/skills/check");
@@ -306,7 +308,16 @@ describe("buildPiArgs", () => {
 			promptFile: "/tmp/prompt.md",
 			cwd: "/repo",
 		});
-		expect(args).toEqual(["--approve", "--model", "openai:gpt-4o", "@/repo/a.ts", "@/tmp/prompt.md"]);
+		expect(args).toEqual([
+			"--approve",
+			"--model",
+			"openai:gpt-4o",
+			"--no-extensions",
+			"--extension",
+			join(dirname(fileURLToPath(import.meta.url)), "subagent-notify-tools.ts"),
+			"@/repo/a.ts",
+			"@/tmp/prompt.md",
+		]);
 	});
 
 	it("passes --exclude-tools when configured", () => {
@@ -318,6 +329,17 @@ describe("buildPiArgs", () => {
 		});
 		expect(args).toContain("--exclude-tools");
 		expect(args[args.indexOf("--exclude-tools") + 1]).toBe("write,edit");
+	});
+
+	it("disables extension discovery and loads only the subagent_notify extension", () => {
+		const args = buildPiArgs({
+			profile: { name: "scout", tools: ["read", "bash"], skills: [], promptTemplates: [] },
+			files: [],
+			promptFile: "/tmp/prompt.md",
+			cwd: "/repo",
+		});
+		expect(args).toContain("--no-extensions");
+		expect(args[args.indexOf("--extension") + 1]).toMatch(/subagent-notify-tools\.ts$/);
 	});
 });
 
