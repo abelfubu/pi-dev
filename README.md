@@ -10,6 +10,16 @@ From git:
 pi install git:github.com/abelfubu/pi-dev
 ```
 
+## Shared GitHub watcher
+
+The `github-watch` CLI and `github_watch` Pi tool share one local polling daemon for explicitly registered PRs. It persists snapshots and independent consumer acknowledgments, and queues orchestrator follow-ups for changed feedback/checks. See [setup, usage, and first-iteration limitations](docs/github-watch.md).
+
+```bash
+node cli/github-watch.mjs start
+node cli/github-watch.mjs watch OWNER/REPO#742 --consumer my-orchestrator
+node cli/github-watch.mjs status OWNER/REPO#742 --consumer my-orchestrator
+```
+
 ## Requirements
 
 - [Atlassian CLI (`acli`)](https://developer.atlassian.com/cloud/acli/guides/install-acli/) installed and authenticated:

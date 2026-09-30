@@ -9,7 +9,11 @@
 		"pi-extension"
 	],
 	"license": "MIT",
+	"bin": {
+		"github-watch": "cli/github-watch.mjs"
+	},
 	"files": [
+		"cli",
 		"extensions",
 		"lib",
 		"prompts",
@@ -40,7 +44,8 @@
 		]
 	},
 	"dependencies": {
-		"extended-markdown-adf-parser": "^2.4.0"
+		"extended-markdown-adf-parser": "^2.4.0",
+		"jiti": "^2.0.0"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
@@ -48,7 +53,6 @@
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.2",
-		"jiti": "^2.0.0",
 		"typebox": "^1.3.0",
 		"typescript": "^5.6.0",
 		"vitest": "^3.2.6"
