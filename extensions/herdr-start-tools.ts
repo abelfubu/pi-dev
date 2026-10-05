@@ -4,12 +4,14 @@ import { Type } from "typebox";
 import {
   createHerdrPane,
   openHerdrPopup,
+  openHerdrReviewTab,
   runInPane,
   zoomHerdrPane,
 } from "../lib/herdr.js";
 
 interface HerdrStartDetails {
   paneId?: string;
+  tabId?: string;
   command: string;
   cwd: string;
   zoomed: boolean;
@@ -38,6 +40,9 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     zoomed: Type.Optional(
       Type.Boolean({ description: "Zoom the new pane; defaults to false" }),
     ),
+    reviewTab: Type.Optional(
+      Type.Boolean({ description: "Reuse the orchestrator's review tab in its workspace; defaults to no focus and overrides popup and zoomed. Use for Glow plan reviews." }),
+    ),
     popup: Type.Optional(
       Type.Boolean({
         description:
@@ -51,16 +56,24 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     label: "Herdr Start",
     exposure: "deferred",
     description:
-      "Create a Herdr pane or popup and run an arbitrary shell command in it, with optional focus, zoom, or popup.",
-    promptSnippet: "Start a command in a new Herdr pane or popup with optional focus, zoom, or popup",
+      "Run a shell command in a Herdr pane, popup, or reusable orchestrator review tab.",
+    promptSnippet: "Start a command in a Herdr pane, popup, or reusable review tab",
     executionMode: "sequential",
     parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const command = requireString(params.command, "command");
       const cwd = resolve(params.cwd ?? ctx?.cwd ?? process.cwd());
-      const focus = params.focus ?? true;
+      const focus = params.focus ?? !params.reviewTab;
       const zoomed = params.zoomed ?? false;
       const popup = params.popup ?? false;
+
+      if (params.reviewTab) {
+        const pane = await openHerdrReviewTab(command, cwd, params.label?.trim() || "Plan", focus);
+        return {
+          content: [{ type: "text" as const, text: `Started command in Herdr review tab ${pane.tabId}. Return to this tab for subsequent reviews.` }],
+          details: { ...pane, command, cwd, zoomed: false, popup: false },
+        };
+      }
 
       if (popup) {
         await openHerdrPopup(command, cwd, { focus });

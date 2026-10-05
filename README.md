@@ -178,7 +178,7 @@ Pass `backend: "herdr"` for interactive inspection in a pane or tab. Its optiona
 | `herdr_handoff` | Open a new focused Herdr tab and seed a fresh interactive `pi` session with a prompt. |
 | `subagent_notify` | Notify the parent session that a Herdr subagent has finished (Unix socket, with Herdr fallback). |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
-| `herdr_start` | Create a pane or full-screen popup and run any shell command with optional focus, zoom, or popup. |
+| `herdr_start` | Run a shell command in a pane, popup, or reusable orchestrator review tab (`reviewTab: true`). |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
 
 `worktrunk` supports `create`, `list`, and `remove`. Creation waits for approved Worktrunk lifecycle hooks, allowing `.worktreeinclude` files to select ignored local state such as `.env*`, `.eslintcache`, and `node_modules/` for copying.
@@ -189,9 +189,9 @@ Completion notification is harness-owned. A subagent may call `subagent_notify` 
 
 | Tool | Purpose |
 |------|---------|
-| `diffview_review` | Open a pinned local diff in Neovim Diffview in a focused full-screen Herdr popup. |
+| `diffview_review` | Open a pinned local diff in Neovim Diffview in the orchestrator's reusable review tab. |
 
-`diffview_review` resolves the same immutable diff and opens it with `exec nvim -c "DiffviewOpen <range>"` in a focused full-screen Herdr popup via the `herdr-popup` plugin. The popup closes automatically when Neovim exits.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Glow plan reviews use `herdr_start` with `reviewTab: true` to share that tab. Tabs are identified by the originating pane, so simultaneous orchestrators stay separate, and default to no focus. Exit the viewer before the next review; the tab's shell remains available. Missing caller pane/workspace context fails rather than opening in the currently focused workspace.
 
 ### Jira
 

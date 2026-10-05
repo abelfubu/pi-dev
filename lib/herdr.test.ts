@@ -33,7 +33,7 @@ describe("createHerdrPane", () => {
 
     expect(execFileMock).toHaveBeenCalledWith(
       "herdr",
-      ["tab", "create", "--workspace", "w7", "--label", "reviewer", "--cwd", "/repo"],
+      ["tab", "create", "--workspace", "w7", "--no-focus", "--label", "reviewer", "--cwd", "/repo"],
       expect.any(Object),
       expect.any(Function),
     );

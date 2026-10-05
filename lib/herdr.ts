@@ -86,6 +86,7 @@ export async function createHerdrPane(
       "tab",
       "create",
       ...(parent ? ["--workspace", parent.workspaceId] : []),
+      focus ? "--focus" : "--no-focus",
       "--label",
       label,
       ...(cwd ? ["--cwd", cwd] : []),
@@ -107,6 +108,43 @@ export async function createHerdrPane(
     await runHerdr(["pane", "rename", paneId, label]);
   }
   return { paneId };
+}
+
+/** Reuse the caller's review tab, even after extension reloads or focus changes. */
+export async function openHerdrReviewTab(
+  command: string,
+  cwd: string,
+  label = "Review",
+  focus = false,
+): Promise<HerdrPane> {
+  const paneId = process.env.HERDR_PANE_ID;
+  const workspaceId = process.env.HERDR_WORKSPACE_ID;
+  if (!paneId || !workspaceId) {
+    throw new Error("Missing parent Herdr pane or workspace context.");
+  }
+  const suffix = ` · ${paneId}`;
+  const tabs = await runHerdrJson<{
+    result: { tabs: { tab_id: string; label: string }[] };
+  }>(["tab", "list", "--workspace", workspaceId]);
+  const tab = tabs.result.tabs.find((tab) => tab.label.endsWith(suffix));
+  let pane: HerdrPane;
+  if (tab) {
+    const panes = await runHerdrJson<{
+      result: { panes: { pane_id: string; tab_id: string }[] };
+    }>(["pane", "list", "--workspace", workspaceId]);
+    const existing = panes.result.panes.find((pane) => pane.tab_id === tab.tab_id);
+    if (!existing) throw new Error("Herdr review tab has no pane.");
+    pane = { tabId: tab.tab_id, paneId: existing.pane_id };
+    if (focus) await runHerdr(["tab", "focus", tab.tab_id]);
+  } else {
+    pane = await createHerdrPane(
+      "tab", `Review · ${label}${suffix}`, cwd, { paneId, workspaceId }, focus,
+    );
+  }
+  if (!pane.paneId) throw new Error("Herdr did not return a pane ID.");
+  // Leave the shell alive so Glow and Diffview can share the tab in turn.
+  await runInPane(pane.paneId, `cd ${shellQuote(cwd)} && ${command}`);
+  return pane;
 }
 
 export interface HerdrPopupOptions {

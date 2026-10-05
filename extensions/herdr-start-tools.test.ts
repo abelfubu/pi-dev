@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const mocks = vi.hoisted(() => ({
   createHerdrPane: vi.fn(),
   openHerdrPopup: vi.fn(),
+  openHerdrReviewTab: vi.fn(),
   runInPane: vi.fn(),
   zoomHerdrPane: vi.fn(),
 }));
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../lib/herdr.js", () => ({
   createHerdrPane: mocks.createHerdrPane,
   openHerdrPopup: mocks.openHerdrPopup,
+  openHerdrReviewTab: mocks.openHerdrReviewTab,
   runInPane: mocks.runInPane,
   zoomHerdrPane: mocks.zoomHerdrPane,
 }));
@@ -69,6 +71,20 @@ describe("herdr_start tool", () => {
       zoomed: true,
       popup: false,
     });
+  });
+
+  it("reuses a review tab without focus and overrides popup and zoom", async () => {
+    const api = createApi();
+    registerHerdrStartTools(api);
+    mocks.openHerdrReviewTab.mockResolvedValue({ paneId: "p2", tabId: "t2" });
+    const result = await execute(api, {
+      command: "glow -p /tmp/plan.md", label: "Task", reviewTab: true, popup: true, zoomed: true,
+    });
+    expect(mocks.openHerdrReviewTab).toHaveBeenCalledWith("glow -p /tmp/plan.md", "/caller", "Task", false);
+    expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
+    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
+    expect(result.details).toMatchObject({ tabId: "t2", paneId: "p2", zoomed: false, popup: false });
   });
 
   it("opens a command in a full-screen popup", async () => {
