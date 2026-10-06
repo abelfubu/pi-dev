@@ -18,7 +18,7 @@ export default function (pi: ExtensionAPI) {
       };
     }
 
-    if (process.env.SUBAGENT_RESULT_FILE && /\bgit\s+push\b/i.test(command)) {
+    if (process.env.PI_ACP_DELEGATE_DEPTH && /\bgit\s+push\b/i.test(command)) {
       return {
         block: true,
         reason: "Subagents cannot push branches. The parent orchestrator owns shipping.",

@@ -15,6 +15,20 @@ function setup() {
   const tool = registerTool.mock.calls[0][0];
   return { handlers, sendMessage, close, receive, expire, tool };
 }
+it("does not connect or manage subscriptions inside ACP delegates", async () => {
+  vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "1");
+  const handlers = new Map<string, Function>();
+  const registerTool = vi.fn();
+  register({ on: (name: string, handler: Function) => handlers.set(name, handler), registerTool, sendMessage: vi.fn() } as never);
+  handlers.get("session_start")!({}, { sessionManager: { getSessionId: () => "delegate-session" } });
+  expect(client.listen).not.toHaveBeenCalled();
+  const tool = registerTool.mock.calls[0][0];
+  await expect(tool.execute("watch", { action: "watch", repo: "org/server", pr: 742 })).rejects.toThrow(
+    "GitHub subscriptions are owned by the parent orchestrator",
+  );
+  expect(client.request).not.toHaveBeenCalled();
+  handlers.get("session_shutdown")!();
+});
 it("coalesces follow-ups and acknowledging an old revision preserves newer work", async () => {
   const { receive, tool, sendMessage, handlers } = setup();
   const event = { type: "changed" as const, repo: "org/server", pr: 742, revision: 1 };

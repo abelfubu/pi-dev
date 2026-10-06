@@ -106,36 +106,20 @@ _Avoid_: release, deploy.
 ## Delegation
 
 **Subagent**:
-A scoped `pi` session launched to handle a slice of work independently. The canonical delegated actor in this extension.
+An independently scoped agent responsible for a slice of work. Delegation is owned by the external ACP provider, not by pi-dev.
 _Avoid_: handoff, spawn, worker.
-
-**Handoff**:
-The action of delegating a slice to a subagent by opening a new Herdr tab/pane and seeding it with a prompt. Performed by the `herdr_handoff` tool.
-_Avoid_: subagent, spawn.
 
 **Slice**:
 A self-contained unit of work delegated to a subagent.
 _Avoid_: task, feature, ticket.
 
 **Subagent Result**:
-The structured completion record returned by a subagent, containing its status, output, token usage, and applicable execution facts. Its capture is owned by the execution harness rather than the model.
+The completion record returned by a subagent. Its capture and delivery are owned by the delegation provider rather than pi-dev or the model.
 _Avoid_: summary, notification, final message.
 
 **Herdr Tab**:
-A new subcontext inside the current Herdr workspace, used as the target for a handoff.
+A terminal tab inside a Herdr workspace, used for commands and review viewers.
 _Avoid_: pane, window, workspace.
-
-**Subagent Profile**:
-A named configuration that defines a subagent's execution backend, model, thinking level, tools, and loaded resources. Profiles can be defined or overridden under the `subagents` configuration key; built-in profiles (`reviewer`, `coder`, `scout`, `minimal`) provide defaults.
-_Avoid_: agent template, role, specialization.
-
-**Headless Execution**:
-Background execution of a subagent in an isolated `pi` subprocess without a Herdr pane. The originating tool call returns a Job ID immediately; completion is delivered with the next user Prompt so it cannot interrupt an in-progress draft.
-_Avoid_: handoff, hidden handoff.
-
-**Subagent Job**:
-A Headless Execution tracked by a unique Job ID from launch until completion or session shutdown.
-_Avoid_: process, worker, task.
 
 **Prompt**:
 The markdown instructions supplied to a subagent when a slice starts.

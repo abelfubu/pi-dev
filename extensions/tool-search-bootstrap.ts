@@ -15,10 +15,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
  */
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", () => {
-		// acp_delegate children must stay sealed: they load this extension set
-		// (only pi-dev's own `subagent` spawns pass --no-extensions), and with
-		// tool_search active an unrestricted worker could activate orchestrator
-		// tools like gh_pr or jira. Delegates get direct tools only.
+		// ACP owns delegate tool selection; don't expand it by automatically
+		// activating discovery. This is a loadout choice, not a permission gate.
 		if (process.env.PI_ACP_DELEGATE_DEPTH) return;
 		const active = pi.getActiveTools();
 		if (!active.includes("tool_search")) {

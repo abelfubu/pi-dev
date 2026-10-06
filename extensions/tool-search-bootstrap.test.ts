@@ -38,7 +38,7 @@ describe("tool-search bootstrap", () => {
     expect(setActiveTools).not.toHaveBeenCalled();
   });
 
-  it("stays inactive inside acp_delegate children so delegates cannot activate deferred tools", () => {
+  it("does not automatically expand the tool loadout inside acp_delegate children", () => {
     process.env.PI_ACP_DELEGATE_DEPTH = "1";
     const { api, start, setActiveTools } = createApi(["read", "bash"]);
     registerToolSearchBootstrap(api);

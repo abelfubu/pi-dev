@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0007
 ---
 
 # Run headless subagents in the background

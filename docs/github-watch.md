@@ -30,7 +30,7 @@ pi --extension /absolute/path/to/pi-dev/extensions/github-watch.ts
 
 The `github_watch` tool supports `watch`, `list`, `status`, `refresh`, `ack`, and `cancel`. `watch` accepts explicit `repo`, `pr`, optional `worktree`, and `leaseSeconds` (default four hours, allowed 30 seconds–24 hours). Repeating `watch` renews the lease without resetting its acknowledgment.
 
-The consumer is the **Pi session ID**, not a mutable branch or cwd. The parent can watch server and web PRs from `~/dev`. Subagents identified by `SUBAGENT_RESULT_FILE` cannot manage subscriptions. Bind a worktree explicitly; the watcher never chooses where edits should occur.
+The consumer is the **Pi session ID**, not a mutable branch or cwd. The parent can watch server and web PRs from `~/dev`. ACP delegates identified by `PI_ACP_DELEGATE_DEPTH` cannot manage subscriptions. Bind a worktree explicitly; the watcher never chooses where edits should occur.
 
 On a change, the extension queues `followUp` with `triggerTurn: true`. It coalesces changes behind one outstanding wakeup per PR. Read current status and acknowledge the **inspected revision**, not a later revision. Newer pending changes then produce another wakeup. An acknowledgment means inspected, not resolved. Aborting the agent does not acknowledge feedback or immediately create another wakeup loop; inspect status manually or reconnect/restart to recover pending work.
 

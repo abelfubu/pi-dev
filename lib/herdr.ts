@@ -188,10 +188,6 @@ export async function zoomHerdrPane(paneId: string, zoomed: boolean): Promise<vo
   await runHerdr(["pane", "zoom", "--pane", paneId, zoomed ? "--on" : "--off"]);
 }
 
-export async function notifyPane(paneId: string, message: string): Promise<void> {
-  await runInPane(paneId, message);
-}
-
 export async function closeHerdrPane(paneId: string): Promise<void> {
   await runHerdr(["pane", "close", paneId]);
 }

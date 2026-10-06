@@ -117,7 +117,7 @@ export async function assertNoOpenPullRequestByCurrentUser(
   ctx: ActionContext,
   runJson: JsonRunner = runGhJson,
 ): Promise<void> {
-  if (process.env.SUBAGENT_RESULT_FILE) {
+  if (process.env.PI_ACP_DELEGATE_DEPTH) {
     throw new Error("Subagents cannot create pull requests. The parent orchestrator owns shipping.");
   }
 

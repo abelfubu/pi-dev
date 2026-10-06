@@ -58,7 +58,7 @@ export default function (pi: ExtensionAPI) {
     consumer = `pi:${ctx.sessionManager.getSessionId()}`;
     alive = true;
     // Do not auto-start a daemon for every Pi/coder process. Reconnect to an existing service.
-    if (!process.env.SUBAGENT_RESULT_FILE) connectEvents();
+    if (!process.env.PI_ACP_DELEGATE_DEPTH) connectEvents();
   });
   pi.on("session_shutdown", cleanup);
   pi.registerTool({
@@ -73,7 +73,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, signal) {
       signal?.throwIfAborted();
-      if (process.env.SUBAGENT_RESULT_FILE) throw new Error("GitHub subscriptions are owned by the parent orchestrator");
+      if (process.env.PI_ACP_DELEGATE_DEPTH) throw new Error("GitHub subscriptions are owned by the parent orchestrator");
       if (!alive || !consumer) throw new Error("No active Pi session");
       const current = generation;
       await startDaemon();

@@ -13,6 +13,15 @@ afterEach(() => {
 });
 
 describe("assertNoOpenPullRequestByCurrentUser", () => {
+  it("blocks ACP delegates before querying GitHub", async () => {
+    vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "1");
+    const runJson = vi.fn();
+    await expect(assertNoOpenPullRequestByCurrentUser({}, ctx, runJson)).rejects.toThrow(
+      "Subagents cannot create pull requests. The parent orchestrator owns shipping.",
+    );
+    expect(runJson).not.toHaveBeenCalled();
+  });
+
   it("allows creation when the current user has no open PR", async () => {
     const calls: Array<{ args: string[]; cwd?: string }> = [];
     await assertNoOpenPullRequestByCurrentUser(
