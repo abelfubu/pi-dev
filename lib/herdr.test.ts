@@ -90,7 +90,7 @@ describe("openHerdrPopup", () => {
   });
 
   it("opens a focused full-screen popup by default", async () => {
-    await openHerdrPopup("glow README.md", "/repo");
+    await openHerdrPopup("mdfried README.md", "/repo");
 
     expect(execFileMock).toHaveBeenCalledWith(
       "herdr",
@@ -110,7 +110,7 @@ describe("openHerdrPopup", () => {
         "100%",
         "--focus",
         "--env",
-        "HERDR_POPUP_CMD=glow README.md",
+        "HERDR_POPUP_CMD=mdfried README.md",
         "--env",
         "HERDR_POPUP_CWD=/repo",
       ],

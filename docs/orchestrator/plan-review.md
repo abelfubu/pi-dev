@@ -16,9 +16,9 @@ Keep every material decision and break visible. If this requires a sprawling pro
 
 ## Approval
 
-Discover `herdr_start` and inspect its schema. Call it once with `command: "glow -p <absolute-plan-path>"`, a task-specific `label`, `focus: false`, and `reviewTab: true`. Quote the path safely for the shell. Reuse the review tab in the same workspace; leave it open for later Glow/Diffview reviews.
+Discover `herdr_start` and inspect its schema. Call it once with `command: "mdfried <absolute-plan-path>"`, a task-specific `label`, `focus: false`, and `reviewTab: true`. Quote the path safely for the shell. Reuse the review tab in the same workspace; leave it open for later mdfried/Diffview reviews.
 
-Ask the user to switch to that tab, inspect the brief, exit Glow, and return with comments or explicit approval. Exiting or silence is not approval. If the required viewer is unavailable, report the blocker; a substitute needs explicit user agreement.
+Ask the user to switch to that tab, inspect the brief, exit mdfried, and return with comments or explicit approval. Exiting or silence is not approval. If the required viewer is unavailable, report the blocker; a substitute needs explicit user agreement.
 
 Revise the same file after comments and request approval again. The first implementation writer waits for explicit approval. A material architecture, scope, behavior, or slice change stops implementation and reopens this gate; a small review-fix delta does not.
 

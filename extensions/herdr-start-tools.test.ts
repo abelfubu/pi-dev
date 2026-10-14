@@ -92,7 +92,7 @@ describe("herdr_start tool", () => {
     registerHerdrStartTools(api);
 
     const result = await execute(api, {
-      command: "glow -p /tmp/plan.md",
+      command: "mdfried /tmp/plan.md",
       cwd: "/repo",
       label: "Plan review",
       popup: true,
@@ -102,12 +102,12 @@ describe("herdr_start tool", () => {
     expect(mocks.createHerdrPane).not.toHaveBeenCalled();
     expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
     expect(mocks.openHerdrPopup).toHaveBeenCalledWith(
-      "glow -p /tmp/plan.md",
+      "mdfried /tmp/plan.md",
       "/repo",
       { focus: true },
     );
     expect(result.details).toEqual({
-      command: "glow -p /tmp/plan.md",
+      command: "mdfried /tmp/plan.md",
       cwd: "/repo",
       zoomed: false,
       popup: true,
