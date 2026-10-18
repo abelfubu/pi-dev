@@ -40,8 +40,11 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     zoomed: Type.Optional(
       Type.Boolean({ description: "Zoom the new pane; defaults to false" }),
     ),
+    newTab: Type.Optional(
+      Type.Boolean({ description: "Create a fresh tab in the caller's workspace; defaults to no focus and overrides popup and zoomed. Use for Neovim + Markview plan reviews. Cannot combine with reviewTab." }),
+    ),
     reviewTab: Type.Optional(
-      Type.Boolean({ description: "Reuse the orchestrator's review tab in its workspace; defaults to no focus and overrides popup and zoomed. Use for Neovim plan reviews." }),
+      Type.Boolean({ description: "Reuse the orchestrator's review tab in its workspace; defaults to no focus and overrides popup and zoomed. Use for reusable Neovim/Diffview reviews." }),
     ),
     popup: Type.Optional(
       Type.Boolean({
@@ -56,16 +59,36 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
     label: "Herdr Start",
     exposure: "deferred",
     description:
-      "Run a shell command in a Herdr pane, popup, or reusable orchestrator review tab.",
-    promptSnippet: "Start a command in a Herdr pane, popup, or reusable review tab",
+      "Run a shell command in a Herdr pane, popup, fresh tab, or reusable orchestrator review tab.",
+    promptSnippet: "Start a command in a Herdr pane, popup, fresh tab, or reusable review tab",
     executionMode: "sequential",
     parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const command = requireString(params.command, "command");
       const cwd = resolve(params.cwd ?? ctx?.cwd ?? process.cwd());
-      const focus = params.focus ?? !params.reviewTab;
+      if (params.newTab && params.reviewTab) {
+        throw new Error("newTab and reviewTab cannot be combined.");
+      }
+      const focus = params.focus ?? !(params.reviewTab || params.newTab);
       const zoomed = params.zoomed ?? false;
       const popup = params.popup ?? false;
+
+      if (params.newTab) {
+        const paneId = process.env.HERDR_PANE_ID;
+        const workspaceId = process.env.HERDR_WORKSPACE_ID;
+        if (!paneId || !workspaceId) {
+          throw new Error("Missing parent Herdr pane or workspace context.");
+        }
+        const pane = await createHerdrPane(
+          "tab", params.label?.trim() || "Plan", cwd, { paneId, workspaceId }, focus,
+        );
+        if (!pane.paneId || !pane.tabId) throw new Error("Herdr did not return pane and tab IDs.");
+        await runInPane(pane.paneId, command);
+        return {
+          content: [{ type: "text" as const, text: `Started command in new Herdr tab ${pane.tabId}.` }],
+          details: { ...pane, command, cwd, zoomed: false, popup: false },
+        };
+      }
 
       if (params.reviewTab) {
         const pane = await openHerdrReviewTab(command, cwd, params.label?.trim() || "Plan", focus);

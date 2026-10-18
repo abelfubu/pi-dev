@@ -35,6 +35,7 @@ async function execute(api: ReturnType<typeof createApi>, params: Record<string,
 
 describe("herdr_start tool", () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     for (const mock of Object.values(mocks)) mock.mockReset();
     mocks.createHerdrPane.mockResolvedValue({ paneId: "pane-1" });
     mocks.zoomHerdrPane.mockResolvedValue(undefined);
@@ -71,6 +72,76 @@ describe("herdr_start tool", () => {
       zoomed: true,
       popup: false,
     });
+  });
+
+  it("creates a fresh tab per plan in the caller's workspace without focus", async () => {
+    vi.stubEnv("HERDR_PANE_ID", "parent-pane");
+    vi.stubEnv("HERDR_WORKSPACE_ID", "parent-workspace");
+    const api = createApi();
+    registerHerdrStartTools(api);
+    mocks.createHerdrPane
+      .mockResolvedValueOnce({ paneId: "p2", tabId: "t2" })
+      .mockResolvedValueOnce({ paneId: "p3", tabId: "t3" });
+    const command = "nvim -c 'Markview splitOpen' -- '/tmp/my plan.md'";
+    const params = { command, label: "Plan", newTab: true, popup: true, zoomed: true };
+
+    const first = await execute(api, params);
+    const second = await execute(api, params);
+
+    expect(mocks.createHerdrPane).toHaveBeenCalledTimes(2);
+    expect(mocks.createHerdrPane).toHaveBeenCalledWith(
+      "tab", "Plan", "/caller", { paneId: "parent-pane", workspaceId: "parent-workspace" }, false,
+    );
+    expect(mocks.runInPane).toHaveBeenNthCalledWith(1, "p2", command);
+    expect(mocks.runInPane).toHaveBeenNthCalledWith(2, "p3", command);
+    expect(first.details).toMatchObject({ tabId: "t2", paneId: "p2", zoomed: false, popup: false });
+    expect(second.details.tabId).toBe("t3");
+    expect(mocks.openHerdrReviewTab).not.toHaveBeenCalled();
+    expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
+    expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
+  });
+
+  it("honors explicit focus, cwd, and the default fresh-tab label", async () => {
+    vi.stubEnv("HERDR_PANE_ID", "parent-pane");
+    vi.stubEnv("HERDR_WORKSPACE_ID", "parent-workspace");
+    const api = createApi();
+    registerHerdrStartTools(api);
+    mocks.createHerdrPane.mockResolvedValue({ paneId: "p2", tabId: "t2" });
+    await execute(api, { command: "nvim /tmp/plan.md", newTab: true, cwd: "/repo", focus: true });
+    expect(mocks.createHerdrPane).toHaveBeenCalledWith(
+      "tab", "Plan", "/repo", { paneId: "parent-pane", workspaceId: "parent-workspace" }, true,
+    );
+  });
+
+  it.each(["HERDR_PANE_ID", "HERDR_WORKSPACE_ID"])("rejects fresh tabs without %s", async (missing) => {
+    vi.stubEnv("HERDR_PANE_ID", "parent-pane");
+    vi.stubEnv("HERDR_WORKSPACE_ID", "parent-workspace");
+    vi.stubEnv(missing, "");
+    const api = createApi();
+    registerHerdrStartTools(api);
+    await expect(execute(api, { command: "nvim /tmp/plan.md", newTab: true }))
+      .rejects.toThrow("Missing parent Herdr pane or workspace context.");
+    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.runInPane).not.toHaveBeenCalled();
+  });
+
+  it("rejects conflicting tab modes before opening anything", async () => {
+    const api = createApi();
+    registerHerdrStartTools(api);
+    await expect(execute(api, { command: "nvim /tmp/plan.md", newTab: true, reviewTab: true }))
+      .rejects.toThrow("newTab and reviewTab cannot be combined.");
+    expect(mocks.createHerdrPane).not.toHaveBeenCalled();
+    expect(mocks.openHerdrReviewTab).not.toHaveBeenCalled();
+  });
+
+  it("does not run the command if fresh-tab creation returns incomplete IDs", async () => {
+    vi.stubEnv("HERDR_PANE_ID", "parent-pane");
+    vi.stubEnv("HERDR_WORKSPACE_ID", "parent-workspace");
+    const api = createApi();
+    registerHerdrStartTools(api);
+    await expect(execute(api, { command: "nvim /tmp/plan.md", newTab: true }))
+      .rejects.toThrow("Herdr did not return pane and tab IDs.");
+    expect(mocks.runInPane).not.toHaveBeenCalled();
   });
 
   it("reuses a review tab without focus and overrides popup and zoom", async () => {

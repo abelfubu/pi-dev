@@ -89,7 +89,7 @@ Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and rem
 | Tool | Purpose |
 |------|---------|
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
-| `herdr_start` | Run a shell command in a pane, popup, or reusable orchestrator review tab (`reviewTab: true`). |
+| `herdr_start` | Run a shell command in a pane, popup, fresh workspace tab (`newTab: true`), or reusable review tab (`reviewTab: true`). |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
 
 `worktrunk` supports `create`, `list`, and `remove`. Creation waits for approved Worktrunk lifecycle hooks, allowing `.worktreeinclude` files to select ignored local state such as `.env*`, `.eslintcache`, and `node_modules/` for copying.
@@ -100,7 +100,7 @@ Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and rem
 |------|---------|
 | `diffview_review` | Open a pinned local diff in Neovim Diffview in the orchestrator's reusable review tab. |
 
-`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Plan reviews open an editable Markdown brief in Neovim using `herdr_start` with `reviewTab: true` to share that tab. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): a short outcome-first explanation, concrete steps, visible risks, and a small text diagram when useful. Tabs are identified by the originating pane, so simultaneous orchestrators stay separate, and default to no focus. Exit the viewer before the next review; the tab's shell remains available. Missing caller pane/workspace context fails rather than opening in the currently focused workspace.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Plan reviews instead use `herdr_start` with `newTab: true` and `nvim -c 'Markview splitOpen' -- '<absolute-plan-path>'`: each plan gets a fresh tab in that same workspace, with editable source beside a synchronized Markdown preview. Neovim and `markview.nvim` must already be installed, with `:Markview` available at startup. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): a short outcome-first explanation, concrete steps, visible risks, and a small ASCII diagram when useful. Both tab modes default to no focus and require caller pane/workspace context rather than using the currently focused workspace. Existing plan tabs and unsaved edits are left alone; the reusable Diffview tab remains separate.
 
 ### Jira
 
