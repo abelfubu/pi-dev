@@ -59,7 +59,7 @@ A ready slice has satisfied dependencies and an available checkout. Launch indep
 
 ### 3. Open the plan gate
 
-For non-trivial or ambiguous work, synthesize an architecture brief yourself from repository evidence and delegate findings. Obtain explicit approval before the first writer. Tiny obvious fixes may skip this gate; state the reason. Material architecture, scope, behavior, or slice changes require renewed approval; small review-fix deltas do not.
+For non-trivial or ambiguous work, synthesize a human-facing change brief yourself from repository evidence and delegate findings. Obtain explicit approval before the first writer. Tiny obvious fixes may skip this gate; state the reason. Material architecture, scope, behavior, or slice changes require renewed approval; small review-fix deltas do not.
 
 **Done:** the applicable plan is explicitly approved, or the tiny-fix exemption is stated.
 

@@ -41,7 +41,7 @@ export default function registerHerdrStartTools(pi: ExtensionAPI) {
       Type.Boolean({ description: "Zoom the new pane; defaults to false" }),
     ),
     reviewTab: Type.Optional(
-      Type.Boolean({ description: "Reuse the orchestrator's review tab in its workspace; defaults to no focus and overrides popup and zoomed. Use for Glow plan reviews." }),
+      Type.Boolean({ description: "Reuse the orchestrator's review tab in its workspace; defaults to no focus and overrides popup and zoomed. Use for Neovim plan reviews." }),
     ),
     popup: Type.Optional(
       Type.Boolean({

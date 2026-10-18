@@ -100,7 +100,7 @@ Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and rem
 |------|---------|
 | `diffview_review` | Open a pinned local diff in Neovim Diffview in the orchestrator's reusable review tab. |
 
-`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Glow plan reviews use `herdr_start` with `reviewTab: true` to share that tab. Tabs are identified by the originating pane, so simultaneous orchestrators stay separate, and default to no focus. Exit the viewer before the next review; the tab's shell remains available. Missing caller pane/workspace context fails rather than opening in the currently focused workspace.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Plan reviews open an editable Markdown brief in Neovim using `herdr_start` with `reviewTab: true` to share that tab. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): a short outcome-first explanation, concrete steps, visible risks, and a small text diagram when useful. Tabs are identified by the originating pane, so simultaneous orchestrators stay separate, and default to no focus. Exit the viewer before the next review; the tab's shell remains available. Missing caller pane/workspace context fails rather than opening in the currently focused workspace.
 
 ### Jira
 

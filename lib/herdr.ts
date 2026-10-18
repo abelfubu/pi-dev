@@ -142,7 +142,7 @@ export async function openHerdrReviewTab(
     );
   }
   if (!pane.paneId) throw new Error("Herdr did not return a pane ID.");
-  // Leave the shell alive so Glow and Diffview can share the tab in turn.
+  // Leave the shell alive so plan editing and Diffview can share the tab in turn.
   await runInPane(pane.paneId, `cd ${shellQuote(cwd)} && ${command}`);
   return pane;
 }

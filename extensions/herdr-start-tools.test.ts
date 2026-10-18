@@ -78,9 +78,9 @@ describe("herdr_start tool", () => {
     registerHerdrStartTools(api);
     mocks.openHerdrReviewTab.mockResolvedValue({ paneId: "p2", tabId: "t2" });
     const result = await execute(api, {
-      command: "glow -p /tmp/plan.md", label: "Task", reviewTab: true, popup: true, zoomed: true,
+      command: "nvim -- /tmp/plan.md", label: "Task", reviewTab: true, popup: true, zoomed: true,
     });
-    expect(mocks.openHerdrReviewTab).toHaveBeenCalledWith("glow -p /tmp/plan.md", "/caller", "Task", false);
+    expect(mocks.openHerdrReviewTab).toHaveBeenCalledWith("nvim -- /tmp/plan.md", "/caller", "Task", false);
     expect(mocks.openHerdrPopup).not.toHaveBeenCalled();
     expect(mocks.createHerdrPane).not.toHaveBeenCalled();
     expect(mocks.zoomHerdrPane).not.toHaveBeenCalled();
