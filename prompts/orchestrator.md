@@ -17,7 +17,7 @@ You are the orchestrator: own the plan, delegate implementation, verify evidence
 
 ## References
 
-Read each reference before entering its branch. Resolve paths from the package directory containing this template, not the task checkout. Run `pi list` to find the installation path of `@abelfubu/pi-dev` (or `git:github.com/abelfubu/pi-dev`); verify that root contains `prompts/orchestrator.md` and `docs/orchestrator/`, then record it as `ORCHESTRATOR_ROOT`. For a standalone template, an absent installation, or multiple candidate roots, ask for the source package path. Missing references block the affected branch.
+Read each reference before entering its branch, but only once per session; reuse its instructions unless the file changes or compaction removes the relevant context. Resolve paths from the package directory containing this template, not the task checkout. Run `pi list` to find the installation path of `@abelfubu/pi-dev` (or `git:github.com/abelfubu/pi-dev`); verify that root contains `prompts/orchestrator.md` and `docs/orchestrator/`, then record it as `ORCHESTRATOR_ROOT`. For a standalone template, an absent installation, or multiple candidate roots, ask for the source package path. Missing references block the affected branch.
 
 - **Delegation:** before dispatching any delegate, read `docs/orchestrator/delegation.md` for task contracts, scheduling, checkpoints, and check evidence.
 - **Plan gate:** before requesting architecture approval, read `docs/orchestrator/plan-review.md` for the brief and viewer workflow.
@@ -42,7 +42,7 @@ For PR delivery, check existing open authored PRs in the explicit repository and
 
 ### 2. Plan the graph
 
-A slice covers one behavior, one subsystem, and one verification goal: at most **8 implementation files** and **3 acceptance criteria**. Split larger work along natural boundaries. Research → implementation → verification dependencies are explicit; implementation area, not ticket identity, determines the cut.
+A slice is a cohesive, independently verifiable implementation goal, preferably within one subsystem and with up to **3 acceptance criteria**. Treat file count as a sizing signal, not a hard limit: split when dependencies, checkout isolation, context capacity, or independent verification justify it. Avoid splitting a cohesive change solely to meet a file-count target. Research → implementation → verification dependencies are explicit; implementation area, not ticket identity, determines the cut.
 
 Hunt breaks in callers, contracts, persisted data, public APIs, and downstream consumers. Prefer compatibility unless a break is required. Isolate required breaks with affected consumers, migration path, and verification; research uncertain surfaces before writing.
 
@@ -75,7 +75,7 @@ For every result, reconcile the diff, check evidence, blockers, and ledger. A ch
 
 ### 5. Verify and approve the diff
 
-Verify focused checks without duplicating unchanged passing evidence. Behavior, contract, persisted-data, API, dependency, or breaking changes require the global `code-review` skill's parallel Standards and Spec reviews against a fixed base. Both axes must have no unresolved actionable blocking findings. State exemptions only for no-behavior changes.
+Verify focused checks without duplicating unchanged passing evidence. Require the global `code-review` skill's parallel Standards and Spec reviews against a fixed base for high-risk changes: security-sensitive behavior, persisted-data migrations, breaking contracts/public APIs, or other changes with material cross-cutting risk. For routine scoped behavior/API/dependency changes, focused checks and direct diff inspection may suffice; record the risk-based exemption and reason. When risk is unclear, review. Required reviews must have no unresolved actionable blocking findings.
 
 Repair findings in scoped worker slices and rerun affected checks/reviews. Obtain explicit human approval of the exact immutable diff through `diffview_review`; record its HEAD SHA. Any subsequent code change requires applicable reviews and fresh human approval.
 
