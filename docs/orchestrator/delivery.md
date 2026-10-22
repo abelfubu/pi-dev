@@ -18,11 +18,11 @@ Within one repository, deliver sequentially. Dependent follow-on work waits for 
 
 ## Automated review
 
-Any behavior, contract, persisted-data, public-API, dependency, or breaking change requires the global `code-review` skill against the PR's fixed base. Load it in the parent and embed its Standards and Spec axis instructions and fixed base directly into two parallel read-only reviewer tasks. Children need self-contained instructions, not a request to run the orchestration skill.
+High-risk changes require the global `code-review` skill against the PR's fixed base: security-sensitive behavior, persisted-data migrations, breaking contracts/public APIs, or material cross-cutting changes. Load it in the parent and embed its Standards and Spec axis instructions and fixed base directly into two parallel read-only reviewer tasks. Children need self-contained instructions, not a request to run the orchestration skill.
 
 Both axes pass only when no unresolved actionable blocking findings remain: documented-standard violations, spec gaps, incorrect behavior, or other blockers. Delegate repairs, require focused checks, and rerun affected review. Resolve findings rather than silently waiving them to ship.
 
-Docs/prompts, comments, formatting, typo fixes, and proven no-behavior mechanical renames may be exempt; state the reason. When uncertain, review.
+Docs/prompts, comments, formatting, typo fixes, and proven no-behavior mechanical renames may be exempt. Routine scoped behavior, API, or dependency changes may also be exempt when focused checks and direct diff inspection provide sufficient confidence. Record the risk assessment and exemption reason; repository-mandated reviews still apply. When uncertain, review.
 
 ## Exact-diff human gate
 
