@@ -45,7 +45,7 @@ Use `resumeFrom` for failed/cancelled runs when their prior work is worth retain
 
 Design slices to fit comfortably in a delegate's context. Where context telemetry is available, target below 35%; at 50%, stop implementation and checkpoint. Without telemetry, use the observable scope bounds rather than guessing percentages.
 
-Checkpoint and reslice when work expands past 8 implementation files, exceeds 3 independent behaviors, or combines implementation with broad regression repair. Research, implementation, repair, broad verification, and review are separate slices.
+Checkpoint and reslice when context capacity is at risk, work expands beyond a cohesive independently verifiable goal, exceeds 3 independent behaviors, or combines implementation with broad regression repair. File count is a warning signal rather than an automatic checkpoint; avoid splitting a coherent change solely because it touches more than 8 files. Research, implementation, repair, broad verification, and review are separate slices.
 
 A checkpoint reports:
 
