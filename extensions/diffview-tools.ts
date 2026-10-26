@@ -1,9 +1,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { openHerdrReviewTab, shellQuote } from "../lib/herdr.js";
+import { shellQuote } from "../lib/herdr.js";
+import { describeTerminalWindow, openReviewWindow } from "../lib/terminal.js";
 import { resolveReviewTarget } from "../lib/tuicr.js";
 
 interface DiffviewToolDetails {
+  platform: "rex" | "herdr";
+  windowId?: string;
+  blockId?: string;
   paneId?: string;
   tabId?: string;
   repoDir: string;
@@ -23,18 +27,18 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
   const parameters = Type.Object({
     repoDir: Type.String({ description: "Absolute repository directory" }),
     baseRef: Type.String({ description: "Fixed Git base ref" }),
-    label: Type.Optional(Type.String({ description: "Review tab label; use the task name" })),
-    focus: Type.Optional(Type.Boolean({ description: "Focus the review tab; defaults to false" })),
+    label: Type.Optional(Type.String({ description: "Review window/tab label; use the task name" })),
+    focus: Type.Optional(Type.Boolean({ description: "Focus the review window/tab; defaults to false" })),
   });
 
   pi.registerTool<typeof parameters, DiffviewToolDetails>({
     name: "diffview_review",
     label: "Diffview Review",
     exposure: "deferred",
-    description: "Open an exact local diff in Neovim Diffview in the orchestrator's reusable Herdr review tab without stealing focus.",
+    description: "Open an exact local diff in Neovim Diffview in a new Rex window or the orchestrator's reusable Herdr review tab without stealing focus.",
     promptSnippet: "Open a deterministic local diff in Neovim Diffview",
     promptGuidelines: [
-      "Use diffview_review when the user wants to review in Neovim. Reuses the caller's review tab in its workspace; the tab stays available when Neovim exits.",
+      "Use diffview_review when the user wants to review in Neovim. Automatically detects Rex or Herdr; the window/tab stays available when Neovim exits.",
     ],
     executionMode: "sequential",
     parameters,
@@ -44,16 +48,16 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
       const target = await resolveReviewTarget(repoDir, baseRef);
       const command = `nvim -c ${shellQuote(`DiffviewOpen ${target.revisions}`)}`;
 
-      const pane = await openHerdrReviewTab(command, target.repoDir, params.label ?? "Diffview", params.focus ?? false);
+      const pane = await openReviewWindow(command, target.repoDir, params.label ?? "Diffview", params.focus ?? false);
 
       return {
         content: [
           {
             type: "text" as const,
             text: [
-              `Opened Neovim Diffview in Herdr review tab ${pane.tabId}.`,
+              `Opened Neovim Diffview in ${describeTerminalWindow(pane)}.`,
               `Pinned diff: ${target.mergeBaseSha}..${target.headSha}.`,
-              "The tab remains available when Neovim exits.",
+              "The window/tab remains available when Neovim exits.",
             ].join("\n"),
           },
         ],

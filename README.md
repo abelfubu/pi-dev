@@ -84,10 +84,11 @@ Delegation is provided externally by billion-dollars' `acp_delegate`, not by thi
 
 Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and remove explicit extension paths for `subagent-tools.ts` and `subagent-notify-tools.ts` from Pi configuration. The `subagent`, `subagent_notify`, and `herdr_handoff` tools have been removed. Existing global configuration and saved run artifacts are not modified by this update.
 
-### Herdr
+### Terminal windows (Rex and Herdr)
 
 | Tool | Purpose |
 |------|---------|
+| `terminal_start` | Run a shell command in a fresh Rex window or Herdr tab, detected automatically. Defaults to no focus. |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 | `herdr_start` | Run a shell command in a pane, popup, fresh workspace tab (`newTab: true`), or reusable review tab (`reviewTab: true`). |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
@@ -98,9 +99,9 @@ Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and rem
 
 | Tool | Purpose |
 |------|---------|
-| `diffview_review` | Open a pinned local diff in Neovim Diffview in the orchestrator's reusable review tab. |
+| `diffview_review` | Open a pinned local diff in Neovim Diffview in a fresh Rex window or reusable Herdr review tab. |
 
-`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a reusable review tab in the caller's Herdr workspace. Plan reviews instead use `herdr_start` with `newTab: true` and `nvim -c 'Markview splitOpen' -- '<absolute-plan-path>'`: each plan gets a fresh tab in that same workspace, with editable source beside a synchronized Markdown preview. Neovim and `markview.nvim` must already be installed, with `:Markview` available at startup. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): a short outcome-first explanation, concrete steps, visible risks, and a small ASCII diagram when useful. Both tab modes default to no focus and require caller pane/workspace context rather than using the currently focused workspace. Existing plan tabs and unsaved edits are left alone; the reusable Diffview tab remains separate.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a fresh Rex window or a reusable review tab in the caller's Herdr workspace. Plan reviews use `terminal_start` with `nvim -c 'Markview splitOpen' -- '<absolute-plan-path>'`: each plan gets a fresh Rex window or Herdr tab, with editable source beside a synchronized Markdown preview. Neovim and `markview.nvim` must already be installed, with `:Markview` available at startup. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): a short outcome-first explanation, concrete steps, visible risks, and a small ASCII diagram when useful. Both viewers default to no focus and require caller context rather than using the currently focused session/workspace. Detection prefers `TERM_PROGRAM` (`rex` or `Herdr`), then `REX_SESSION` or Herdr's pane/workspace variables. Rex targets `REX_SESSION` explicitly and keeps windows open after the editor exits. Existing plan windows/tabs and unsaved edits are left alone. Herdr-specific tools remain available unchanged.
 
 ### Jira
 

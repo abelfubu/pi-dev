@@ -23,15 +23,15 @@ Keep every material decision and break in the brief, even if it exceeds the targ
 
 ## Approval
 
-Discover `herdr_start` and inspect its schema. Call it once with `newTab: true`, a task-specific `label`, `focus: false`, and this command (quote the absolute path safely for the shell):
+Discover `terminal_start` and inspect its schema. It detects Rex or Herdr from the caller's environment. Call it once with a task-specific `label`, `focus: false`, and this command (quote the absolute path safely for the shell):
 
 ```sh
 nvim -c 'Markview splitOpen' -- '<absolute-plan-path>'
 ```
 
-This opens editable Markdown beside a synchronized Markview preview. Create a fresh tab in the caller's workspace for each plan, not a sibling pane, popup, separate workspace, or reused Diffview tab. Leave existing plan tabs and unsaved edits alone. Revisions belong to the same plan file and tab; ask the user to reload saved external changes rather than sending a shell command into a running editor. Neovim and `markview.nvim` must already be installed and the `:Markview` command available at startup; report a missing preview as a blocker rather than silently opening source only.
+This opens editable Markdown beside a synchronized Markview preview. Create a fresh Rex window in the caller's session or Herdr tab in the caller's workspace for each plan, not a sibling pane, popup, separate session/workspace, or reused Diffview tab. Leave existing plan tabs and unsaved edits alone. Revisions belong to the same plan file and tab; ask the user to reload saved external changes rather than sending a shell command into a running editor. Neovim and `markview.nvim` must already be installed and the `:Markview` command available at startup; report a missing preview as a blocker rather than silently opening source only.
 
-Ask the user to switch to that tab, review or annotate the brief, save any edits, exit Neovim, and return with comments or explicit approval. Read the file again after the user reports saved edits. Annotations, exiting, or silence are not approval. If Neovim is unavailable, report the blocker; a substitute needs explicit user agreement.
+Ask the user to switch to that window/tab, review or annotate the brief, save any edits, exit Neovim, and return with comments or explicit approval. Read the file again after the user reports saved edits. Annotations, exiting, or silence are not approval. If Neovim is unavailable, report the blocker; a substitute needs explicit user agreement.
 
 Revise the same file after comments and request approval again. The first implementation writer waits for explicit approval. A material architecture, scope, behavior, or slice change stops implementation and reopens this gate; a small review-fix delta does not.
 
