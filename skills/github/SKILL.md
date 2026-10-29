@@ -26,17 +26,17 @@ Hold on every run:
 ## Shipping policy
 
 - Subagents never push branches or create/mutate pull requests. The parent orchestrator owns shipping.
-- Follow the orchestrator's order: coder checks → risk-based review decision (orchestrator may skip the global `code-review` two-axis review for no-behavior changes with a stated reason; behavior changes always get both Standards and Spec axes) → `diffview_review` human gate → explicit user approval → PR creation.
+- Follow the orchestrator's order for EVERY implementation slice: coder checks → `diffview_review` human gate → explicit approval → risk-based automated review decision. High-risk changes require both Standards and Spec axes; routine scoped changes may be exempt with a recorded reason. Before each PR, approve the complete delivery diff and run the final Copilot CLI review (`copilot -p "/review ..."`); resolve blockers and obtain renewed human approval for any code changes before PR creation.
 - Explicit user approval is required. Empty comments, closing the review, or silence are not approval.
-- Any code change after `diffview_review` approval invalidates approval and requires both reviews again.
+- Any code change after `diffview_review` approval invalidates approval and requires fresh human Diffview review before applicable automated reviews; rerun affected checks and review axes rather than all reviews unconditionally.
 - Hard rule: only one open PR authored by the authenticated GitHub user may exist per repository **per orchestrator**, including drafts. Orchestrators are identified by the `PI_ORCHESTRATOR_ID` env var (falling back to `HERDR_PANE_ID`); PRs created through `gh_pr` carry a hidden `<!-- pi-orchestrator: <id> -->` body marker so the preflight only blocks on PRs owned by the same orchestrator. Check with `gh_pr` action `list`, `author: "@me"`, `state: "open"` before planning and immediately before creation. Existing PRs by other users or other orchestrators do not count. If one exists for this orchestrator, stop and report it.
 - Use `gh_pr` for creation; do not compose `gh pr create` through `bash`.
 
 ## Common flows
 
 ### Ship a change
-1. Complete coder checks and the two-axis `code-review` skill.
-2. Complete the `diffview_review` human gate and receive explicit approval.
+1. Complete coder checks and mandatory human Diffview review for each slice before risk-selected automated reviews.
+2. Approve the complete delivery diff; run the final Copilot CLI review and resolve blocking findings (reapprove code changes).
 3. Recheck the approved diff and the authenticated user's open PRs.
 4. Open PR: `gh_pr` with `action: create`.
 5. Check CI: `gh_pr` with `action: checks`.
