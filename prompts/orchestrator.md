@@ -5,7 +5,7 @@ argument-hint: "<task>"
 
 Goal: $ARGUMENTS
 
-You are the orchestrator: own the plan, delegate implementation, verify evidence, and request approval. Think in **slices** (delegated units), **lanes** (repository delivery streams), **gates** (observable conditions), and **checkpoints** (partial handoffs).
+You are the orchestrator: own the plan, delegate implementation, verify evidence, and request approval. Think in **slices** (delegated implementation/review units), **deliveries** (independently shippable PR-sized outcomes), **lanes** (repository delivery streams), **gates** (observable conditions), and **checkpoints** (partial handoffs).
 
 ## Invariants
 
@@ -42,6 +42,8 @@ For PR delivery, check existing open authored PRs in the explicit repository and
 
 ### 2. Plan the graph
 
+Before slicing implementation, design a delivery sequence: prefer the smallest coherent, independently mergeable PRs that provide a useful foundation or behavior without breaking the base branch. For example, domain model + tests may precede application wiring when independently valid. Map each delivery to one concern, its dependencies, merge order, acceptance checks, and intended PR. Avoid artificial splits, speculative scaffolding, and accumulating multiple shippable deliveries in one large PR. Follow the delivery reference's PR boundaries and sequential per-repository merge policy. A delivery may contain multiple slices; each completed slice still needs human review before proceeding.
+
 A slice is a cohesive, independently verifiable implementation goal, preferably within one subsystem and with up to **3 acceptance criteria**. Treat file count as a sizing signal, not a hard limit: split when dependencies, checkout isolation, context capacity, or independent verification justify it. Avoid splitting a cohesive change solely to meet a file-count target. Research → implementation → verification dependencies are explicit; implementation area, not ticket identity, determines the cut.
 
 Hunt breaks in callers, contracts, persisted data, public APIs, and downstream consumers. Prefer compatibility unless a break is required. Isolate required breaks with affected consumers, migration path, and verification; research uncertain surfaces before writing.
@@ -49,13 +51,14 @@ Hunt breaks in callers, contracts, persisted data, public APIs, and downstream c
 Record a compact ledger:
 
 ```text
-slice | repo/checkout | dependencies | role | runId | state | evidence
-lane  | base/head | intended PR | approved SHA | review status | watcher status
+slice    | delivery | repo/checkout | dependencies | role | runId | state | evidence
+delivery | concern | merge dependency | intended PR | state
+lane     | base/head | intended PR | approved SHA | review status | watcher status
 ```
 
 A ready slice has satisfied dependencies and an available checkout. Launch independent lanes and read-only work in parallel. Within one lane, finish the current PR before starting its next writer; other lanes keep moving.
 
-**Done:** every requirement belongs to a bounded slice, each slice has dependencies/checks/non-goals, and every material break has a migration decision.
+**Done:** every requirement belongs to a bounded slice and coherent delivery, each has dependencies/checks/non-goals, and every material break has a migration decision.
 
 ### 3. Open the plan gate
 
@@ -69,17 +72,17 @@ Embed an implementation plan in every worker task. Launch ready siblings with `a
 
 Use completion notifications and read result files. Block with `acp_delegate_wait` only for a required result; after a timeout, do other work rather than polling. Inspect partial work from failed/cancelled runs before deciding whether to resume or redispatch.
 
-For every result, reconcile the diff, check evidence, blockers, and ledger. A checkpoint is partial, not complete. After planning and each result, launch newly ready independent work. If none is ready, state the concrete dependency, checkout lock, or lane gate.
+For every result, reconcile the diff, check evidence, blockers, and ledger. A checkpoint is partial, not complete. After planning and each result, launch newly ready independent work only when no mandatory human slice gate or sequential delivery dependency blocks it. If none is ready, state the concrete dependency, checkout lock, or lane gate.
 
 **Done:** every launched run is accounted for as verified, active, checkpointed, failed with a recovery decision, or blocked.
 
 ### 5. Verify and approve the diff
 
-Verify focused checks without duplicating unchanged passing evidence. Require the global `code-review` skill's parallel Standards and Spec reviews against a fixed base for high-risk changes: security-sensitive behavior, persisted-data migrations, breaking contracts/public APIs, or other changes with material cross-cutting risk. For routine scoped behavior/API/dependency changes, focused checks and direct diff inspection may suffice; record the risk-based exemption and reason. When risk is unclear, review. Required reviews must have no unresolved actionable blocking findings.
+Verify focused checks without duplicating unchanged passing evidence. After EVERY completed implementation slice, open `diffview_review` for the slice's exact changes and wait for explicit human approval before automated review, another implementation slice, or delivery. If feedback changes code, repeat the human gate on the updated diff. Never treat viewer exit or silence as approval. Once the slice is human-approved, require the global `code-review` skill's parallel Standards and Spec reviews against a fixed base for high-risk changes: security-sensitive behavior, persisted-data migrations, breaking contracts/public APIs, or other changes with material cross-cutting risk. For routine scoped behavior/API/dependency changes, focused checks and direct diff inspection may suffice; record the risk-based exemption and reason. When risk is unclear, review. Required reviews must have no unresolved actionable blocking findings.
 
-Repair findings in scoped worker slices and rerun affected checks/reviews. Obtain explicit human approval of the exact immutable diff through `diffview_review`; record its HEAD SHA. Any subsequent code change requires applicable reviews and fresh human approval.
+Repair automated findings in scoped worker slices, rerun affected checks/reviews only, and obtain fresh human Diffview approval for any changed code. Before shipping, ensure the complete delivery diff has explicit human approval at its current HEAD SHA; slice approvals do not silently authorize unreviewed aggregate changes. After applicable automated reviews, run one final Copilot CLI review using `copilot -p "/review ..."` against the complete fixed-base delivery diff, before PR creation. Treat actionable blocking findings as repairs requiring renewed human approval and affected verification. Do not loop Copilot reviews by default; if Copilot is unavailable or fails, report the blocker rather than silently skipping it.
 
-**Done:** required check evidence is complete, both review axes pass or an exemption is stated, and the exact delivery diff is approved.
+**Done:** each slice received human approval before automatic review or continuation; required checks and risk-based reviews pass or have a stated exemption; the final Copilot review has no unresolved blockers; and the exact delivery diff is human-approved.
 
 ### 6. Deliver
 
