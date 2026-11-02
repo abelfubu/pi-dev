@@ -4,22 +4,20 @@ The parent synthesizes the proposal; researchers supply evidence and options, no
 
 ## Review brief
 
-Write a Markdown file outside every repository. Aim for **200–350 words**, fewer for small changes. The reader should understand the outcome, approach, and main trade-off in about a minute.
+Write a Markdown file outside every repository. Keep it short enough to review at a glance: one outcome sentence followed by this table.
 
-Lead with the user-visible result, then use this shape:
+| Fix / Create | Module | Pieces affected | What changes |
+|---|---|---|---|
+| Fix | Invoicing | Use case, repository | Prevent duplicate invoices |
+| Create | Notifications | Controller, use case | Receive delivery callbacks |
 
-- **Why:** the problem and what will be better, in 1–2 sentences.
-- **What changes:** 3–5 short numbered steps, each describing a concrete change and its purpose. Mention a file or component only when it helps locate the change; keep symbol inventories and code snippets in worker contracts.
-- **Watch out:** material risks, assumptions, breaking changes with migration paths, and decisions needing input. For a meaningful trade-off, state the recommendation and why it beats the strongest alternative. Omit this section when there is nothing material to flag.
-- **Done when:** 1–3 observable outcomes and the focused checks that prove them. Include a short scope boundary when adjacent work might be expected.
+Replace the examples with the actual proposal. Name each affected module and its relevant pieces (use cases, repositories, controllers, schemas, etc.). Use one short row per coherent change; identify the repository only when needed to disambiguate modules.
 
-Use plain language and short sentences. Explain necessary technical terms where they first appear. Describe how behavior changes rather than listing implementation chores. Keep scheduling, delegate assignments, and PR bookkeeping in the orchestration ledger.
+Add a short **Watch out** note only for approval-critical risks, breaking changes/migrations, or decisions needing user input. Do not hide these to keep the table short.
 
-Add **one small ASCII diagram** when a flow, boundary, or before/after is easier to see than explain. Use a fenced `text` block, roughly 3–6 labeled nodes, and lines narrow enough for a terminal. It must be readable directly in Neovim without a renderer. Skip diagrams that only repeat the steps.
+No implementation walkthroughs, code snippets, diagrams, exhaustive file/symbol inventories, or mandatory Why/Done when sections. Provide deeper detail only when the user asks. Keep acceptance checks and implementation details in worker contracts; keep slicing, scheduling, delegate assignments, and PR bookkeeping in the orchestration ledger.
 
-Keep every material decision and break in the brief, even if it exceeds the target length. If the proposal is still hard to scan, split it into independently reviewable changes and state their dependencies. Supporting details may live in linked notes; approval-critical information stays in the brief.
-
-**Ready:** a reader can say what changes, why, what could go wrong, and how success will be checked without opening implementation notes.
+**Ready:** a reader can see what needs fixing or creating, which modules and pieces change, and any approval-critical concern at a glance.
 
 ## Approval
 
