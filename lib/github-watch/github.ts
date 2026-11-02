@@ -21,7 +21,7 @@ export async function fetchSnapshot(target: Target, read: GhReader = ghJson): Pr
     return result.flat();
   };
   const [pr, comments, reviews] = await Promise.all([
-    read(["pr", "view", `https://github.com/${target.repo}/pull/${target.pr}`, "--json", "headRefOid,state,statusCheckRollup"]),
+    read(["pr", "view", `https://github.com/${target.repo}/pull/${target.pr}`, "--json", "headRefOid,baseRefOid,state,isDraft,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup"]),
     pages(`${prefix}/issues/${target.pr}/comments?per_page=100`),
     pages(`${prefix}/pulls/${target.pr}/reviews?per_page=100`),
   ]);
@@ -55,11 +55,13 @@ export async function fetchSnapshot(target: Target, read: GhReader = ghJson): Pr
     cursor = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : undefined;
     if (connection.pageInfo.hasNextPage && (!cursor || cursor === previous)) throw new Error("Invalid thread pagination cursor");
   } while (cursor);
-  // Prevent mixed-head snapshots after a concurrent push. The next poll retries.
-  const latest = await read(["pr", "view", `https://github.com/${target.repo}/pull/${target.pr}`, "--json", "headRefOid,state"]);
-  if (latest.headRefOid !== pr.headRefOid || latest.state !== pr.state) throw new Error("PR changed during reconciliation; retrying next poll");
+  // Prevent mixed-head/base snapshots after a concurrent push. The next poll retries.
+  const latest = await read(["pr", "view", `https://github.com/${target.repo}/pull/${target.pr}`, "--json", "headRefOid,baseRefOid,state"]);
+  if (latest.headRefOid !== pr.headRefOid || latest.baseRefOid !== pr.baseRefOid || latest.state !== pr.state) throw new Error("PR changed during reconciliation; retrying next poll");
   return {
     headSha: pr.headRefOid, state: pr.state,
+    baseSha: pr.baseRefOid ?? null, isDraft: pr.isDraft ?? null, reviewDecision: pr.reviewDecision ?? null,
+    mergeable: pr.mergeable ?? null, mergeStateStatus: pr.mergeStateStatus ?? null,
     comments: sorted(comments.map(row => ({ ...fields(row, ["id", "body", "created_at", "updated_at", "html_url"]), author: row.user?.login }))),
     reviews: sorted(reviews.map(row => ({ ...fields(row, ["id", "body", "state", "submitted_at", "commit_id", "html_url"]), author: row.user?.login }))),
     threads: sorted(threads),

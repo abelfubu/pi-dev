@@ -29,6 +29,21 @@ it("does not connect or manage subscriptions inside ACP delegates", async () => 
   expect(client.request).not.toHaveBeenCalled();
   handlers.get("session_shutdown")!();
 });
+it("queues quiet maintenance instructions rather than user-facing change reports", () => {
+  const { receive, sendMessage, handlers } = setup();
+  receive({ type: "changed", repo: "org/server", pr: 742, revision: 1 });
+  const [message, options] = sendMessage.mock.calls[0];
+  expect(message.display).toBe(false);
+  expect(message.content).toContain("docs/orchestrator/pr-follow-up.md");
+  expect(message.content).toContain("Proactively address valid review feedback");
+  expect(message.content).toContain("merge conflicts within authorized scope");
+  expect(message.content).toContain("notify the user only for a decision/blocker");
+  expect(message.content).toContain("Do not repeat unchanged notices");
+  expect(message.content).toContain("Never merge automatically");
+  expect(message.content).toContain("acknowledge only the inspected revision");
+  expect(options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+  handlers.get("session_shutdown")!();
+});
 it("coalesces follow-ups and acknowledging an old revision preserves newer work", async () => {
   const { receive, tool, sendMessage, handlers } = setup();
   const event = { type: "changed" as const, repo: "org/server", pr: 742, revision: 1 };

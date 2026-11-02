@@ -20,6 +20,8 @@ Within one repository, deliver sequentially. Dependent follow-on work waits for 
 
 ## Human-first slice review
 
+These human-first/exact-diff gates apply to new delivery and material changes. Routine maintenance of an already-open PR has a narrow standing-authorization exception in [PR follow-up](pr-follow-up.md); retain checks, applicable automated reviews, and any stricter user/repository gates.
+
 After focused checks for EVERY completed implementation slice, open `diffview_review` on its exact change range and request explicit human approval. Do this BEFORE launching any automated review or implementing the next slice. If the user requests changes, repair and present the updated diff again. Closing the viewer, silence, and passing tests never count as approval. For a multi-slice delivery, obtain approval of the complete fixed-base delivery diff before shipping as well; do not assume earlier slice approvals cover new integration changes.
 
 ## Automated review

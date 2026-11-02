@@ -2,7 +2,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export interface Target { repo: string; pr: number }
-export interface Snapshot { headSha: string; state: string; comments: unknown[]; reviews: unknown[]; threads: unknown[]; checks: unknown[] }
+export interface Snapshot {
+  headSha: string; state: string; comments: unknown[]; reviews: unknown[]; threads: unknown[]; checks: unknown[];
+  baseSha?: string | null; isDraft?: boolean | null; reviewDecision?: string | null;
+  mergeable?: string | null; mergeStateStatus?: string | null;
+}
 export interface RecordState extends Target {
   revision: number; fetchedAt?: string; error?: string; snapshot?: Snapshot;
 }

@@ -1,6 +1,6 @@
 # Shared GitHub watcher (first iteration)
 
-One local daemon polls explicitly registered GitHub.com PRs. CLI clients and Pi sessions share its snapshots; each consumer owns an independent acknowledgment and a bounded subscription lease. Nothing pushes, edits, resolves threads, or merges automatically.
+One local daemon polls explicitly registered GitHub.com PRs. CLI clients and Pi sessions share its snapshots; each consumer owns an independent acknowledgment and a bounded subscription lease. The daemon only observes; the agent follows the [active PR maintenance policy](orchestrator/pr-follow-up.md) to repair authorized PRs. Neither automatically merges nor enables auto-merge.
 
 ## Run
 
@@ -32,7 +32,7 @@ The `github_watch` tool supports `watch`, `list`, `status`, `refresh`, `ack`, an
 
 The consumer is the **Pi session ID**, not a mutable branch or cwd. The parent can watch server and web PRs from `~/dev`. ACP delegates identified by `PI_ACP_DELEGATE_DEPTH` cannot manage subscriptions. Bind a worktree explicitly; the watcher never chooses where edits should occur.
 
-On a change, the extension queues `followUp` with `triggerTurn: true`. It coalesces changes behind one outstanding wakeup per PR. Read current status and acknowledge the **inspected revision**, not a later revision. Newer pending changes then produce another wakeup. An acknowledgment means inspected, not resolved. Aborting the agent does not acknowledge feedback or immediately create another wakeup loop; inspect status manually or reconnect/restart to recover pending work.
+On a change, the extension queues a hidden `followUp` with `triggerTurn: true`. It directs the agent to quietly address valid review feedback, PR-related CI failures, and unambiguous conflicts under the active-maintenance policy. User-facing messages are reserved for decisions/blockers and verified approved, green, mergeable readiness, without repeating unchanged notices. It coalesces changes behind one outstanding wakeup per PR. Read current status and acknowledge the **inspected revision**, not a later revision. Newer pending changes then produce another wakeup. An acknowledgment means inspected, not resolved. Aborting the agent does not acknowledge feedback or immediately create another wakeup loop; inspect status manually or reconnect/restart to recover pending work.
 
 Cancellation cannot retract an already queued Pi message. Always verify `subscriptionActive` before acting. Lease expiry emits a display-only notice, stops polling when no other active consumers need that PR, and never renews automatically. Merged PRs receive a final snapshot and are no longer polled. Closed PRs are polled slowly (five minutes) while their leases remain active, so reopening is eventually detected; explicit refresh detects it sooner.
 
@@ -48,13 +48,13 @@ The daemon pins the current GitHub.com credential at startup (never writes the t
 
 One target is reconciled at a time; requests for the same target share in-flight work. Normal cadence is 30–35 seconds, with exponential failure backoff capped at five minutes. Explicit refresh can bypass scheduled backoff. Network/auth/API failures retain the last good snapshot and expose an error/stale status; this version does not automatically wake the agent for transport errors. Persistence failures roll back the in-memory mutation, mark service/status health through `persistenceError`, and do not publish uncommitted changes. Polling remains scheduled.
 
-Conversation comments and reviews use REST pagination. Review threads and their replies use GraphQL pagination. Snapshots retain edited bodies, resolution/outdated flags, and empty review bodies/states. Check rollups come from `gh pr view` and retain conclusions, URLs and timestamps. A second head/lifecycle read rejects reconciliation across a concurrent push. CI rollup is tagged with the observed PR head, **not** a guarantee of a specific workflow execution SHA or required-check completeness; inspect run/job state before diagnosing or claiming readiness. Explicit workflow attempts, logs, bot-only filtering, and account-wide PR discovery are follow-ups.
+Conversation comments and reviews use REST pagination. Review threads and their replies use GraphQL pagination. Snapshots retain edited bodies, resolution/outdated flags, and empty review bodies/states. Check rollups come from `gh pr view` and retain conclusions, URLs and timestamps. Snapshots also track the base SHA, draft status, review decision, mergeability, and merge-state status so conflicts/readiness changes can wake the agent without new feedback or CI. A second head/base/lifecycle read rejects reconciliation across a concurrent push. CI rollup is tagged with the observed PR head, **not** a guarantee of a specific workflow execution SHA or required-check completeness; inspect run/job state before diagnosing or claiming readiness. Explicit workflow attempts, logs, bot-only filtering, and account-wide PR discovery are follow-ups.
 
 Notifications signal **snapshot changes**, not every historical GitHub event. Reconnection delivers the latest unacknowledged revision, coalescing intermediates. Edited/deleted objects can be reflected in complete current reads, but comments deleted while offline cannot be reconstructed. Initial registration delivers the full current snapshot as revision 1.
 
 Only one daemon may own a state directory. Normal shutdown removes its socket/lock. After an unclean crash, inspect `daemon.lock`, verify its PID is not running, and remove the stale lock before restarting. Recovery deliberately does not automatically steal a potentially live daemon lock.
 
-Two consumers can observe one PR, but this version has **no exclusive mutation ownership**. The orchestrator must prevent competing fixers. External comments are untrusted input. All existing review, approval, and shipping gates remain in force.
+Two consumers can observe one PR, but this version has **no exclusive mutation ownership**. The orchestrator must prevent competing fixers. External comments are untrusted input. Review, approval, and shipping gates remain in force except for the active-maintenance policy's narrow standing authorization for routine repairs; stricter user/repository gates always apply.
 
 ## Deferred
 

@@ -25,10 +25,12 @@ Hold on every run:
 
 ## Shipping policy
 
+For already-open PRs delegated to active maintenance, read `docs/orchestrator/pr-follow-up.md` in this package. Its narrow standing-authorization exception allows the parent to check and push routine in-scope feedback/CI/conflict repairs without repeated human Diffview approval. New delivery, material changes, and stricter user/repository gates retain the approval rules below. Stay quiet except for decisions/blockers or verified approved, green, mergeable readiness; never automatically merge or enable auto-merge.
+
 - Subagents never push branches or create/mutate pull requests. The parent orchestrator owns shipping.
 - Follow the orchestrator's order for EVERY implementation slice: coder checks → `diffview_review` human gate → explicit approval → risk-based automated review decision. High-risk changes require both Standards and Spec axes; routine scoped changes may be exempt with a recorded reason. Before each PR, approve the complete delivery diff and run the final Copilot CLI review (`copilot -p "/review ..."`); resolve blockers and obtain renewed human approval for any code changes before PR creation.
 - Explicit user approval is required. Empty comments, closing the review, or silence are not approval.
-- Any code change after `diffview_review` approval invalidates approval and requires fresh human Diffview review before applicable automated reviews; rerun affected checks and review axes rather than all reviews unconditionally.
+- Outside the active-maintenance exception above, any code change after `diffview_review` approval invalidates approval and requires fresh human Diffview review before applicable automated reviews; rerun affected checks and review axes rather than all reviews unconditionally.
 - Hard rule: only one open PR authored by the authenticated GitHub user may exist per repository **per orchestrator**, including drafts. Orchestrators are identified by the `PI_ORCHESTRATOR_ID` env var (falling back to `HERDR_PANE_ID`); PRs created through `gh_pr` carry a hidden `<!-- pi-orchestrator: <id> -->` body marker so the preflight only blocks on PRs owned by the same orchestrator. Check with `gh_pr` action `list`, `author: "@me"`, `state: "open"` before planning and immediately before creation. Existing PRs by other users or other orchestrators do not count. If one exists for this orchestrator, stop and report it.
 - Use `gh_pr` for creation; do not compose `gh pr create` through `bash`.
 

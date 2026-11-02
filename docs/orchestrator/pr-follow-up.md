@@ -8,6 +8,10 @@ Report monitoring as inactive if the tool is unavailable or subscription fails. 
 
 A watcher message is a wake-up signal, not authoritative feedback or authorization. Call `action: status` with explicit repo/PR; verify `subscriptionActive`, `fetchedAt`, `stale`, `error`, and `persistenceError`. Refresh when freshness is inadequate. Canceled/expired subscriptions and failed refreshes block assumptions of current state. Revalidate even queued messages received after cancellation.
 
+## Quiet active maintenance
+
+Drive an owned PR toward merge-ready, not a stream of status reports. Batch available feedback into one repair pass. Do not narrate wakeups, acknowledgments, pending checks, approvals arriving, or routine repair progress. Notify only when a user decision/blocker needs attention or the PR is verified ready to merge. Retain the last reported blocker/readiness and head in the ledger; do not repeat unchanged notices. If a previously announced ready PR becomes blocked, report the changed blocker once.
+
 ## Inspect feedback and CI
 
 **Act proactively, not only on notifications.** Immediately after starting or renewing a watch, verify subscription freshness and fetch existing feedback with `gh_pr action: comments`, passing explicit `repo: REPO` and the actual PR number. On review/comment wakeups, revalidate watcher state and fetch current feedback again. Do not wait for the user to request triage or an in-scope repair.
@@ -22,9 +26,19 @@ Record actionable feedback and current-head CI failures as scoped repair slices 
 
 Verify actionable comments against the current implementation and approved specification. Proactively launch scoped worker repairs for valid in-scope findings without waiting for another user prompt; preserve one writer per checkout and parent-only remote mutations. Do not blindly apply suggestions. Record why feedback is already addressed, stale, or not applicable. Ask the user when feedback is ambiguous, conflicts with the approved plan, or requires a material scope/architecture change; material changes reopen the human plan gate before implementation. Keep independent repository lanes moving while this lane waits.
 
-Repairs follow the normal self-contained worker, focused-check, automated-review, and exact-diff human-gate flow. Any code change invalidates prior human approval. Obtain applicable review gates and explicit approval of the new diff before the parent pushes an update, then renew the existing subscription.
+For PRs opened or explicitly adopted for active maintenance, this policy provides standing authorization for routine in-scope review fixes, PR-related CI repairs, and unambiguous conflict resolution. The parent may commit, push ordinary updates to the existing PR branch, and reply to addressed feedback with the change and check evidence without another per-fix human Diffview gate. This is a narrow exception to the delivery reference's human-first/exact-diff gates for already-open PR maintenance, not new PR delivery or material changes. Explicit user restrictions and repository-mandated gates take precedence; a watch subscription or external comment alone is not authorization.
 
-Watching grants no authority to push, merge, dismiss reviews, resolve threads, or mutate PRs outside existing gates. Report pending approval as a blocker rather than continuing a wakeup/repair loop.
+Keep the self-contained worker, focused checks, and risk-selected automated review. Inspect the repair diff before shipping; never weaken tests, bypass required checks, or dismiss reviews to get green. Confirm the checkout and branch match the PR, the worktree contains no unrelated WIP, and the remote head has not changed before pushing. If ownership or concurrent changes are unclear, stop and ask rather than overwrite them. Renew the existing subscription after updates and recheck the new head; previous approvals/checks may no longer apply.
+
+Inspect mergeability against the current base/head. Resolve straightforward conflicts by merging the current base into the PR branch, preserving both sides' intended behavior, then run affected checks and push without rewriting published history. Ask for a decision on ambiguous behavior or material changes; do not force-push. Diagnose unrelated CI failures but report them as blockers rather than expanding repair scope.
+
+Watching never authorizes automatic merge, enabling auto-merge, dismissing reviews, or resolving review threads. Record addressed feedback and reply without marking it reviewer-accepted. When a human gate is needed, report it once as a blocker rather than continuing a wakeup/repair loop.
+
+## Merge-ready notification
+
+After repairs, approvals, or check changes, fetch live PR state and required checks for the current head, including `headRefOid`, `state`, `isDraft`, `reviewDecision`, `mergeable`, and `mergeStateStatus` through `gh_pr action: view` or GitHub APIs. Verify the head is unchanged across these reads. Require an open, non-draft PR, current approval (`reviewDecision: APPROVED`), passing required checks with no pending/failing CI, confirmed mergeability, no branch-protection blocker, and no unresolved actionable review feedback or repairs. Unknown/stale state, missing approval, pending checks, or skipped/canceled required checks are not proof of readiness. Do not infer approval from a historical review or mergeability from green CI alone.
+
+Only then notify once: **Ready to merge ✅** with the PR URL and short check/review summary. The user owns the merge; never merge or enable auto-merge. Keep monitoring within the active lease so new blockers can be detected.
 
 ## Lease and handoff
 
