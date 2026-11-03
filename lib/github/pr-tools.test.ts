@@ -1,15 +1,38 @@
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   assertNoOpenPullRequestByCurrentUser,
   fetchPrComments,
+  currentOrchestratorId,
   orchestratorMarker,
   prToolConfig,
 } from "./pr-tools.js";
 
 const ctx = { cwd: "/tmp/repo" };
 
+beforeEach(() => {
+  for (const key of ["PI_ORCHESTRATOR_ID", "TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID"]) {
+    vi.stubEnv(key, "");
+  }
+});
+
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+describe("currentOrchestratorId", () => {
+  it("prefers the explicit override over terminal identities", () => {
+    vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
+    vi.stubEnv("REX_BLOCK", "block:1");
+    vi.stubEnv("HERDR_PANE_ID", "pane-1");
+    expect(currentOrchestratorId()).toBe("orch-a");
+  });
+
+  it("uses the detected terminal's caller identity", () => {
+    vi.stubEnv("TERM_PROGRAM", "Herdr");
+    vi.stubEnv("REX_BLOCK", "outer-block");
+    vi.stubEnv("HERDR_PANE_ID", "pane-1");
+    expect(currentOrchestratorId()).toBe("pane-1");
+  });
 });
 
 describe("assertNoOpenPullRequestByCurrentUser", () => {
@@ -113,8 +136,8 @@ describe("assertNoOpenPullRequestByCurrentUser", () => {
     ]);
   });
 
-  it("falls back to HERDR_PANE_ID when PI_ORCHESTRATOR_ID is unset", async () => {
-    vi.stubEnv("HERDR_PANE_ID", "pane-1");
+  it.each(["REX_BLOCK", "HERDR_PANE_ID"])("falls back to %s for PR ownership", async (key) => {
+    vi.stubEnv(key, "pane-1");
     await expect(
       assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
         {
@@ -226,8 +249,8 @@ describe("prToolConfig", () => {
       expect(args).toEqual(["pr", "create", "--title", "Fix bug", "--body", "Details"]);
     });
 
-    it("appends the orchestrator marker to the body", () => {
-      vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
+    it.each(["PI_ORCHESTRATOR_ID", "REX_BLOCK", "HERDR_PANE_ID"])("appends the marker from %s to the body", (key) => {
+      vi.stubEnv(key, "orch-a");
       const args = handler.buildArgs(
         { action: "create", title: "Fix bug", body: "Details" } as any,
         ctx,

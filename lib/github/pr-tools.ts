@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import { registerGhActionTool, type ActionContext, type GhActionToolConfig } from "./tool.js";
 import { formatPr, formatPrList, formatChecks, formatPrComments } from "./format.js";
 import { runGhJson } from "./runner.js";
+import { terminalCallerId } from "../terminal.js";
 
 const DEFAULT_VIEW_FIELDS =
   "number,title,url,state,headRefName,baseRefName,isDraft,mergeable,mergeStateStatus,body";
@@ -56,7 +57,7 @@ interface AuthoredPullRequest {
 const ORCHESTRATOR_MARKER_PREFIX = "<!-- pi-orchestrator:";
 
 export function currentOrchestratorId(): string | undefined {
-  return process.env.PI_ORCHESTRATOR_ID ?? process.env.HERDR_PANE_ID ?? undefined;
+  return process.env.PI_ORCHESTRATOR_ID || terminalCallerId();
 }
 
 export function orchestratorMarker(orchestratorId: string): string {

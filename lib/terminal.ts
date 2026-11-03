@@ -4,21 +4,37 @@ import { createHerdrPane, openHerdrReviewTab, runInPane } from "./herdr.js";
 
 const execFileAsync = promisify(execFile);
 
+export type TerminalPlatform = "rex" | "herdr";
+
 export interface TerminalWindow {
-  platform: "rex" | "herdr";
+  platform: TerminalPlatform;
   windowId?: string;
   blockId?: string;
   paneId?: string;
   tabId?: string;
 }
 
-export function detectTerminal(): "rex" | "herdr" {
+function findTerminal(): TerminalPlatform | undefined {
   // Prefer the immediate host over context inherited from an outer terminal.
   if (process.env.TERM_PROGRAM === "rex") return "rex";
   if (process.env.TERM_PROGRAM?.toLowerCase() === "herdr") return "herdr";
-  if (process.env.REX_SESSION) return "rex";
+  if (process.env.REX_SESSION || process.env.REX_BLOCK) return "rex";
   if (process.env.HERDR_PANE_ID || process.env.HERDR_WORKSPACE_ID) return "herdr";
-  throw new Error("No Rex or Herdr terminal context found. Open pi inside Rex or Herdr.");
+  return undefined;
+}
+
+export function detectTerminal(): TerminalPlatform {
+  const platform = findTerminal();
+  if (!platform) throw new Error("No Rex or Herdr terminal context found. Open pi inside Rex or Herdr.");
+  return platform;
+}
+
+export function terminalCallerId(): string | undefined {
+  switch (findTerminal()) {
+    case "rex": return process.env.REX_BLOCK || undefined;
+    case "herdr": return process.env.HERDR_PANE_ID || undefined;
+    default: return undefined;
+  }
 }
 
 export async function openTerminalWindow(
