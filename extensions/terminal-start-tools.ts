@@ -5,7 +5,7 @@ import { describeTerminalWindow, openTerminalWindow } from "../lib/terminal.js";
 
 export default function registerTerminalStartTools(pi: ExtensionAPI) {
   const parameters = Type.Object({
-    command: Type.String({ description: "Shell command to run in a fresh Rex window or Herdr tab" }),
+    command: Type.String({ description: "Shell command to run in a fresh Rex window or Herdr/Herdr app tab" }),
     cwd: Type.Optional(Type.String({ description: "Working directory; defaults to caller's cwd" })),
     label: Type.Optional(Type.String({ description: "Window/tab label" })),
     focus: Type.Optional(Type.Boolean({ description: "Focus the viewer; defaults to false" })),
@@ -14,7 +14,7 @@ export default function registerTerminalStartTools(pi: ExtensionAPI) {
     name: "terminal_start",
     label: "Terminal Start",
     exposure: "deferred",
-    description: "Run a command in a fresh window/tab in the caller's Rex session or Herdr workspace. Automatically detects the host. Use for Neovim + Markview plan reviews.",
+    description: "Run a command in a fresh window/tab in the caller's Rex session, Herdr workspace, or Herdr app. Automatically detects the host.",
     executionMode: "sequential",
     parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {

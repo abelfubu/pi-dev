@@ -84,11 +84,11 @@ Delegation is provided externally by billion-dollars' `acp_delegate`, not by thi
 
 Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and remove explicit extension paths for `subagent-tools.ts` and `subagent-notify-tools.ts` from Pi configuration. The `subagent`, `subagent_notify`, and `herdr_handoff` tools have been removed. Existing global configuration and saved run artifacts are not modified by this update.
 
-### Terminal windows (Rex and Herdr)
+### Terminal windows (Rex, Herdr, and Herdr app)
 
 | Tool | Purpose |
 |------|---------|
-| `terminal_start` | Run a shell command in a fresh Rex window or Herdr tab, detected automatically. Defaults to no focus. |
+| `terminal_start` | Run a shell command in a fresh Rex window or Herdr/Herdr app tab, detected automatically. Defaults to no focus. |
 | `herdr_close` | Close a Herdr pane or tab when it is no longer needed. |
 | `herdr_start` | Run a shell command in a pane, popup, fresh workspace tab (`newTab: true`), or reusable review tab (`reviewTab: true`). |
 | `worktrunk` | Create, list, and safely remove hook-prepared Git worktrees. |
@@ -99,9 +99,13 @@ Migration: remove `subagentDefaults` and `subagents` from `pi-dev.json`, and rem
 
 | Tool | Purpose |
 |------|---------|
-| `diffview_review` | Open a pinned local diff in Neovim Diffview in a fresh Rex window or reusable Herdr review tab. |
+| `diffview_review` | Open a pinned local diff in Neovim Diffview in a fresh Rex window, Herdr app tab, or reusable Herdr review tab. |
 
-`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a fresh Rex window or a reusable review tab in the caller's Herdr workspace. Plan reviews run `md-viewer open '<absolute-plan-path>'` directly from the parent orchestrator pane: the first preview opens as a vertical split beside it in the same Rex tab, without taking focus. `md-viewer` owns preview layout and reuse; revisions use the same plan file and `md-viewer open --replace '<absolute-plan-path>'`. Do not wrap it in `terminal_start` or open another window/tab. Plan previews require `md-viewer` and Rex, not Neovim/Markview; failures are reported with the plan path rather than silently using another viewer. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): one outcome sentence, a concise change table, and approval-critical risks. Both viewers preserve focus and use the caller's terminal context. The shared `lib/terminal.ts` abstraction owns host detection, caller identity, and opening/describing viewer windows or tabs. Detection prefers `TERM_PROGRAM` (`rex` or `Herdr`), then Rex's session/block variables or Herdr's pane/workspace variables. PR ownership uses the detected host's caller identity (`REX_BLOCK` or `HERDR_PANE_ID`), unless overridden by a non-empty `PI_ORCHESTRATOR_ID`. Rex targets `REX_SESSION` explicitly and keeps windows open after the editor exits. Unrelated plan previews are left alone. Herdr-specific tools remain available unchanged.
+`diffview_review` resolves the same immutable diff and opens it with `nvim -c "DiffviewOpen <range>"` in a fresh Rex window, a fresh Herdr app tab, or a reusable review tab in the caller's Herdr workspace. Herdr app review tabs restore focus to the caller unless `focus: true` is requested.
+
+Plan reviews use the host's Markdown viewer directly from the parent orchestrator pane. Inside herdr-app (`HC_TERMINAL_ID` is set), run `"${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/markdown-panel/md-review" --no-wait '<absolute-plan-path>'`; the Markdown mod opens or reuses its window and reloads the same file on later runs. In Rex, run `md-viewer open '<absolute-plan-path>'`; its first preview opens as a vertical split beside the caller without taking focus, and revisions use `md-viewer open --replace '<absolute-plan-path>'`. Do not wrap either viewer in `terminal_start` or open another window/tab. Viewer failures are reported with the plan path rather than silently using another viewer. Briefs follow the [plan-review guidance](docs/orchestrator/plan-review.md): one outcome sentence, a concise change table, and approval-critical risks.
+
+The shared `lib/terminal.ts` abstraction owns host detection, caller identity, and opening/describing viewer windows or tabs. Detection prefers `TERM_PROGRAM` (`rex`, `Herdr`, or `herdr-app`), then herdr-app's `HC_TERMINAL_ID`, Rex's session/block variables, or Herdr's pane/workspace variables. PR ownership uses the detected host's caller identity (`HC_TERMINAL_ID`, `REX_BLOCK`, or `HERDR_PANE_ID`), unless overridden by a non-empty `PI_ORCHESTRATOR_ID`. Rex targets `REX_SESSION` explicitly and keeps windows open after the editor exits. Unrelated plan previews are left alone. Herdr-specific tools remain available unchanged.
 
 ### Jira
 

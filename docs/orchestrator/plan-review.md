@@ -21,17 +21,27 @@ No implementation walkthroughs, code snippets, diagrams, exhaustive file/symbol 
 
 ## Approval
 
-Run `md-viewer` directly through `bash` in the parent orchestrator's terminal context (quote the absolute path safely for the shell):
+Run the host's Markdown viewer directly through `bash` in the parent orchestrator's terminal context (quote the absolute path safely for the shell).
+
+Inside herdr-app (`HC_TERMINAL_ID` is set), use its Markdown mod:
+
+```sh
+"${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/markdown-panel/md-review" --no-wait '<absolute-plan-path>'
+```
+
+The mod opens or reuses its Markdown window and loads the plan. After substantially revising the same file, run the same command again to reload it. Do not use `md-viewer` in herdr-app.
+
+In Rex, use `md-viewer`:
 
 ```sh
 md-viewer open '<absolute-plan-path>'
 ```
 
-`md-viewer` manages the preview layout: the first preview opens to the right of the caller as a vertical split in the same Rex tab, without taking focus. Later previews open below the newest preview; an already shown file reuses its preview. Do not launch it through `terminal_start`, a delegate, a new window/tab, or another split: that would change the caller context or create an extra pane. Do not use Neovim/Markview or the Diffview tab for plan reviews.
+`md-viewer` manages the preview layout: the first preview opens to the right of the caller as a vertical split in the same Rex tab, without taking focus. Later previews open below the newest preview; an already shown file reuses its preview. After substantially revising the same file, run `md-viewer open --replace '<absolute-plan-path>'` from the same orchestrator pane to update its last preview. Leave unrelated previews alone.
 
-Keep revisions in the same plan file. After substantially revising it, run `md-viewer open --replace '<absolute-plan-path>'` from the same orchestrator pane to update its last preview rather than create another pane. Leave unrelated previews alone. Always include the absolute plan path in the reply.
+Do not launch either viewer through `terminal_start`, a delegate, a new window/tab, or another split: that would change the caller context or create an extra pane. Do not use Neovim/Markview or the Diffview tab for plan reviews. Always include the absolute plan path in the reply.
 
-Ask the user to review the preview beside the orchestrator and return with comments or explicit approval. No editor exit is required. Read the file again after the user reports saved external edits. Annotations, closing the preview, or silence are not approval. If `md-viewer` fails or `md-viewer`/Rex is unavailable, report the blocker and the plan path; do not retry, install anything, or silently substitute another viewer. Continue discussion in chat, but implementation still waits for explicit approval; a substitute viewer needs explicit user agreement.
+Ask the user to review the plan and return with comments or explicit approval. No editor exit is required. Read the file again after the user reports saved external edits. Annotations, closing the preview, or silence are not approval. If the selected viewer fails or is unavailable, report the blocker and the plan path; do not retry, install anything, or silently substitute another viewer. Continue discussion in chat, but implementation still waits for explicit approval; a substitute viewer needs explicit user agreement.
 
 Revise the same file after comments and request approval again. The first implementation writer waits for explicit approval. A material architecture, scope, behavior, or slice change stops implementation and reopens this gate; a small review-fix delta does not.
 

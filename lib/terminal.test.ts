@@ -23,7 +23,7 @@ import { detectTerminal, describeTerminalWindow, openReviewWindow, openTerminalW
 
 beforeEach(() => {
   vi.resetAllMocks();
-  for (const key of ["TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID"]) vi.stubEnv(key, "");
+  for (const key of ["TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "HC_TERMINAL_ID"]) vi.stubEnv(key, "");
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -37,6 +37,7 @@ describe("terminalCallerId", () => {
   it.each([
     ["REX_BLOCK", "block:1", "rex"],
     ["HERDR_PANE_ID", "pane-1", "herdr"],
+    ["HC_TERMINAL_ID", "terminal-1", "herdr-app"],
   ])("uses %s for the caller identity", (key, id, platform) => {
     vi.stubEnv(key, id);
     expect(detectTerminal()).toBe(platform);
@@ -46,15 +47,17 @@ describe("terminalCallerId", () => {
   it.each([
     ["rex", "block:1"],
     ["Herdr", "pane-1"],
+    ["herdr-app", "terminal-1"],
   ])("uses the immediate %s host instead of inherited context", (host, id) => {
     vi.stubEnv("TERM_PROGRAM", host);
     vi.stubEnv("REX_SESSION", "session:1");
     vi.stubEnv("REX_BLOCK", "block:1");
     vi.stubEnv("HERDR_PANE_ID", "pane-1");
+    vi.stubEnv("HC_TERMINAL_ID", "terminal-1");
     expect(terminalCallerId()).toBe(id);
   });
 
-  it.each(["rex", "Herdr"])("does not borrow an outer identity when %s context is incomplete", (host) => {
+  it.each(["rex", "Herdr", "herdr-app"])("does not borrow an outer identity when %s context is incomplete", (host) => {
     vi.stubEnv("TERM_PROGRAM", host);
     vi.stubEnv(host === "rex" ? "HERDR_PANE_ID" : "REX_BLOCK", "outer");
     expect(terminalCallerId()).toBeUndefined();
@@ -72,7 +75,7 @@ describe("terminalCallerId", () => {
 
 describe("terminal viewers", () => {
   it("requires known caller context", () => {
-    expect(() => detectTerminal()).toThrow("No Rex or Herdr terminal context");
+    expect(() => detectTerminal()).toThrow("No Rex, Herdr, or Herdr app terminal context");
   });
 
   it("prefers the immediate terminal over inherited context", () => {
@@ -115,6 +118,24 @@ describe("terminal viewers", () => {
     vi.stubEnv("REX_SESSION", "session:1");
     rexResult(stdout);
     await expect(openReviewWindow("nvim", "/repo", "Diff")).rejects.toThrow();
+  });
+
+  it("opens a Herdr app tab and returns focus to the caller", async () => {
+    vi.stubEnv("HC_TERMINAL_ID", "caller-terminal");
+    mocks.execFile.mockImplementation((_file, args, _options, callback) => {
+      const result = args[1] === "tab.new" ? { tab: "t4", pane: "p4", terminal: "review-terminal" } : {};
+      callback(null, JSON.stringify(result), "");
+    });
+    const review = await openReviewWindow("nvim -c DiffviewOpen", "/repo", "Diff");
+    expect(mocks.execFile).toHaveBeenNthCalledWith(1, "herdr-app", [
+      "do", "tab.new", "--name", "Diff", "--folder", "/repo",
+      "--argv", JSON.stringify(["sh", "-lc", "nvim -c DiffviewOpen"]),
+    ], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
+    expect(mocks.execFile).toHaveBeenNthCalledWith(2, "herdr-app", [
+      "do", "agent.focus", "--terminal", "caller-terminal",
+    ], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
+    expect(review).toEqual({ platform: "herdr-app", tabId: "t4", paneId: "p4", terminalId: "review-terminal" });
+    expect(describeTerminalWindow(review)).toBe("Herdr app tab t4");
   });
 
   it("preserves Herdr's reusable Diffview tab and fresh plan tabs", async () => {

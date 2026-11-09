@@ -10,7 +10,7 @@ import {
 const ctx = { cwd: "/tmp/repo" };
 
 beforeEach(() => {
-  for (const key of ["PI_ORCHESTRATOR_ID", "TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID"]) {
+  for (const key of ["PI_ORCHESTRATOR_ID", "TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "HC_TERMINAL_ID"]) {
     vi.stubEnv(key, "");
   }
 });
@@ -136,7 +136,7 @@ describe("assertNoOpenPullRequestByCurrentUser", () => {
     ]);
   });
 
-  it.each(["REX_BLOCK", "HERDR_PANE_ID"])("falls back to %s for PR ownership", async (key) => {
+  it.each(["REX_BLOCK", "HERDR_PANE_ID", "HC_TERMINAL_ID"])("falls back to %s for PR ownership", async (key) => {
     vi.stubEnv(key, "pane-1");
     await expect(
       assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
@@ -249,7 +249,7 @@ describe("prToolConfig", () => {
       expect(args).toEqual(["pr", "create", "--title", "Fix bug", "--body", "Details"]);
     });
 
-    it.each(["PI_ORCHESTRATOR_ID", "REX_BLOCK", "HERDR_PANE_ID"])("appends the marker from %s to the body", (key) => {
+    it.each(["PI_ORCHESTRATOR_ID", "REX_BLOCK", "HERDR_PANE_ID", "HC_TERMINAL_ID"])("appends the marker from %s to the body", (key) => {
       vi.stubEnv(key, "orch-a");
       const args = handler.buildArgs(
         { action: "create", title: "Fix bug", body: "Details" } as any,

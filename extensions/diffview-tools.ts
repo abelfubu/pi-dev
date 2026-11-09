@@ -5,11 +5,12 @@ import { describeTerminalWindow, openReviewWindow } from "../lib/terminal.js";
 import { resolveReviewTarget } from "../lib/tuicr.js";
 
 interface DiffviewToolDetails {
-  platform: "rex" | "herdr";
+  platform: "rex" | "herdr" | "herdr-app";
   windowId?: string;
   blockId?: string;
   paneId?: string;
   tabId?: string;
+  terminalId?: string;
   repoDir: string;
   baseSha: string;
   headSha: string;
@@ -35,10 +36,10 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
     name: "diffview_review",
     label: "Diffview Review",
     exposure: "deferred",
-    description: "Open an exact local diff in Neovim Diffview in a new Rex window or the orchestrator's reusable Herdr review tab without stealing focus.",
+    description: "Open an exact local diff in Neovim Diffview in a new Rex window, a Herdr app tab, or the orchestrator's reusable Herdr review tab.",
     promptSnippet: "Open a deterministic local diff in Neovim Diffview",
     promptGuidelines: [
-      "Use diffview_review when the user wants to review in Neovim. Automatically detects Rex or Herdr; the window/tab stays available when Neovim exits.",
+      "Use diffview_review when the user wants to review in Neovim. Automatically detects Rex, Herdr, or Herdr app and reports the opened window/tab.",
     ],
     executionMode: "sequential",
     parameters,
