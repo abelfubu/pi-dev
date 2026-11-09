@@ -4,7 +4,7 @@ import { createHerdrPane, openHerdrReviewTab, runInPane } from "./herdr.js";
 
 const execFileAsync = promisify(execFile);
 
-export type TerminalPlatform = "rex" | "herdr" | "herdr-app";
+export type TerminalPlatform = "rex" | "herdr" | "herdr-app" | "herdr-core";
 
 export interface TerminalWindow {
   platform: TerminalPlatform;
@@ -27,7 +27,7 @@ function findTerminal(): TerminalPlatform | undefined {
 
 export function detectTerminal(): TerminalPlatform {
   const platform = findTerminal();
-  if (!platform) throw new Error("No Rex, Herdr, or Herdr app terminal context found. Open pi inside a supported terminal.");
+  if (!platform) throw new Error("No Rex, Herdr, or Herdr core terminal context found. Open pi inside a supported terminal.");
   return platform;
 }
 
@@ -63,6 +63,16 @@ export async function openTerminalWindow(
     return { platform, windowId: result.window_id, blockId: result.block_ids[0] };
   }
   if (platform === "herdr-app") {
+    try {
+      await execFileAsync("herdr-app", ["ls"], { cwd, encoding: "utf8" });
+    } catch {
+      const { stdout } = await execFileAsync("hc", [
+        "run", "--bg", "--json", "--cwd", cwd, "sh", "-lc", command,
+      ], { cwd, encoding: "utf8" });
+      const result = JSON.parse(stdout);
+      if (typeof result.address !== "string") throw new Error("Herdr core did not return a terminal address.");
+      return { platform: "herdr-core", terminalId: result.address };
+    }
     const { stdout } = await execFileAsync("herdr-app", [
       "do", "tab.new", "--name", label, "--folder", cwd,
       "--argv", JSON.stringify(["sh", "-lc", command]),
@@ -93,5 +103,6 @@ export function openReviewWindow(command: string, cwd: string, label: string, fo
 
 export function describeTerminalWindow(window: TerminalWindow): string {
   if (window.platform === "rex") return `Rex window ${window.windowId}`;
+  if (window.platform === "herdr-core") return `Herdr core terminal ${window.terminalId}; attach with: hc attach ${window.terminalId}`;
   return `${window.platform === "herdr-app" ? "Herdr app" : "Herdr"} tab ${window.tabId}`;
 }

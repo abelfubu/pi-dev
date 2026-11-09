@@ -23,13 +23,19 @@ No implementation walkthroughs, code snippets, diagrams, exhaustive file/symbol 
 
 Run the host's Markdown viewer directly through `bash` in the parent orchestrator's terminal context (quote the absolute path safely for the shell).
 
-Inside herdr-app (`HC_TERMINAL_ID` is set), use its Markdown mod:
+Inside Herdr core (`HC_TERMINAL_ID` is set), first check for a running app window:
+
+```sh
+herdr-app ls
+```
+
+If it succeeds, use the app's Markdown mod:
 
 ```sh
 "${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/markdown-panel/md-review" --no-wait '<absolute-plan-path>'
 ```
 
-The mod opens or reuses its Markdown window and loads the plan. After substantially revising the same file, run the same command again to reload it. Do not use `md-viewer` in herdr-app.
+The mod opens or reuses its Markdown window and loads the plan. After substantially revising the same file, run the same command again to reload it. Do not use `md-viewer` in herdr-app. If `herdr-app ls` fails because no window is running (common over SSH), the Markdown mod is unavailable: report the plan path and continue the review in chat instead of running `md-review`.
 
 In Rex, use `md-viewer`:
 

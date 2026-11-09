@@ -75,7 +75,7 @@ describe("terminalCallerId", () => {
 
 describe("terminal viewers", () => {
   it("requires known caller context", () => {
-    expect(() => detectTerminal()).toThrow("No Rex, Herdr, or Herdr app terminal context");
+    expect(() => detectTerminal()).toThrow("No Rex, Herdr, or Herdr core terminal context");
   });
 
   it("prefers the immediate terminal over inherited context", () => {
@@ -127,15 +127,31 @@ describe("terminal viewers", () => {
       callback(null, JSON.stringify(result), "");
     });
     const review = await openReviewWindow("nvim -c DiffviewOpen", "/repo", "Diff");
-    expect(mocks.execFile).toHaveBeenNthCalledWith(1, "herdr-app", [
+    expect(mocks.execFile).toHaveBeenNthCalledWith(1, "herdr-app", ["ls"], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
+    expect(mocks.execFile).toHaveBeenNthCalledWith(2, "herdr-app", [
       "do", "tab.new", "--name", "Diff", "--folder", "/repo",
       "--argv", JSON.stringify(["sh", "-lc", "nvim -c DiffviewOpen"]),
     ], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
-    expect(mocks.execFile).toHaveBeenNthCalledWith(2, "herdr-app", [
+    expect(mocks.execFile).toHaveBeenNthCalledWith(3, "herdr-app", [
       "do", "agent.focus", "--terminal", "caller-terminal",
     ], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
     expect(review).toEqual({ platform: "herdr-app", tabId: "t4", paneId: "p4", terminalId: "review-terminal" });
     expect(describeTerminalWindow(review)).toBe("Herdr app tab t4");
+  });
+
+  it("falls back to an attachable Herdr core terminal when no app window is running", async () => {
+    vi.stubEnv("HC_TERMINAL_ID", "caller-terminal");
+    mocks.execFile.mockImplementation((file, args, _options, callback) => {
+      if (file === "herdr-app") callback(new Error("no Herdr window"), "", "Connection refused");
+      else callback(null, JSON.stringify({ address: "t9" }), "");
+    });
+    const review = await openReviewWindow("nvim -c DiffviewOpen", "/repo", "Diff");
+    expect(mocks.execFile).toHaveBeenNthCalledWith(1, "herdr-app", ["ls"], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
+    expect(mocks.execFile).toHaveBeenNthCalledWith(2, "hc", [
+      "run", "--bg", "--json", "--cwd", "/repo", "sh", "-lc", "nvim -c DiffviewOpen",
+    ], { cwd: "/repo", encoding: "utf8" }, expect.any(Function));
+    expect(review).toEqual({ platform: "herdr-core", terminalId: "t9" });
+    expect(describeTerminalWindow(review)).toBe("Herdr core terminal t9; attach with: hc attach t9");
   });
 
   it("preserves Herdr's reusable Diffview tab and fresh plan tabs", async () => {

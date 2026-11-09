@@ -5,7 +5,7 @@ import { describeTerminalWindow, openReviewWindow } from "../lib/terminal.js";
 import { resolveReviewTarget } from "../lib/tuicr.js";
 
 interface DiffviewToolDetails {
-  platform: "rex" | "herdr" | "herdr-app";
+  platform: "rex" | "herdr" | "herdr-app" | "herdr-core";
   windowId?: string;
   blockId?: string;
   paneId?: string;
@@ -36,10 +36,10 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
     name: "diffview_review",
     label: "Diffview Review",
     exposure: "deferred",
-    description: "Open an exact local diff in Neovim Diffview in a new Rex window, a Herdr app tab, or the orchestrator's reusable Herdr review tab.",
+    description: "Open an exact local diff in Neovim Diffview in a new Rex window, Herdr app tab, reusable Herdr review tab, or attachable Herdr core terminal when no app window is running.",
     promptSnippet: "Open a deterministic local diff in Neovim Diffview",
     promptGuidelines: [
-      "Use diffview_review when the user wants to review in Neovim. Automatically detects Rex, Herdr, or Herdr app and reports the opened window/tab.",
+      "Use diffview_review when the user wants to review in Neovim. Automatically detects Rex, Herdr, Herdr app, or headless Herdr core and reports how to access the review.",
     ],
     executionMode: "sequential",
     parameters,
@@ -56,9 +56,11 @@ export default function registerDiffviewTools(pi: ExtensionAPI) {
           {
             type: "text" as const,
             text: [
-              `Opened Neovim Diffview in ${describeTerminalWindow(pane)}.`,
+              `Started Neovim Diffview in ${describeTerminalWindow(pane)}.`,
               `Pinned diff: ${target.mergeBaseSha}..${target.headSha}.`,
-              "The window/tab remains available when Neovim exits.",
+              ...(pane.platform === "rex" || pane.platform === "herdr"
+                ? ["The window/tab remains available when Neovim exits."]
+                : []),
             ].join("\n"),
           },
         ],
