@@ -35,7 +35,15 @@ If it succeeds, use the app's Markdown mod:
 "${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/markdown-panel/md-review" --no-wait '<absolute-plan-path>'
 ```
 
-The mod opens or reuses its Markdown window and loads the plan. After substantially revising the same file, run the same command again to reload it. Do not use `md-viewer` in herdr-app. If `herdr-app ls` fails because no window is running (common over SSH), the Markdown mod is unavailable: report the plan path and continue the review in chat instead of running `md-review`.
+The mod opens or reuses its Markdown window and loads the plan. After substantially revising the same file, run the same command again to reload it. Do not use `md-viewer` in herdr-app.
+
+If `herdr-app ls` fails because no window is running (common over SSH), do not run `md-review` or `md-viewer open`: both require an unavailable app/Rex socket. Instead, call `terminal_start` from the parent orchestrator with the current project as `cwd`, `label: "Review plan"`, and this command:
+
+```sh
+nvim -c 'Markview splitOpen' '<absolute-plan-path>'
+```
+
+The tool starts Neovim through `hc run --bg` and returns an attach command. Share both the absolute plan path and `hc attach <terminal>` with the user. After substantially revising the same file, reload the existing preview with `hc keys <terminal> esc 'shift+;' c h e c k t i m e enter` instead of opening another terminal. Use key presses rather than `hc send`, which pastes into the buffer.
 
 In Rex, use `md-viewer`:
 
@@ -45,7 +53,7 @@ md-viewer open '<absolute-plan-path>'
 
 `md-viewer` manages the preview layout: the first preview opens to the right of the caller as a vertical split in the same Rex tab, without taking focus. Later previews open below the newest preview; an already shown file reuses its preview. After substantially revising the same file, run `md-viewer open --replace '<absolute-plan-path>'` from the same orchestrator pane to update its last preview. Leave unrelated previews alone.
 
-Do not launch either viewer through `terminal_start`, a delegate, a new window/tab, or another split: that would change the caller context or create an extra pane. Do not use Neovim/Markview or the Diffview tab for plan reviews. Always include the absolute plan path in the reply.
+Do not launch the app mod or Rex viewer through `terminal_start`, a delegate, a new window/tab, or another split: that would change the caller context or create an extra pane. The headless Herdr core fallback above is the exception. Do not use the Diffview tab for plan reviews. Always include the absolute plan path in the reply.
 
 Ask the user to review the plan and return with comments or explicit approval. No editor exit is required. Read the file again after the user reports saved external edits. Annotations, closing the preview, or silence are not approval. If the selected viewer fails or is unavailable, report the blocker and the plan path; do not retry, install anything, or silently substitute another viewer. Continue discussion in chat, but implementation still waits for explicit approval; a substitute viewer needs explicit user agreement.
 
