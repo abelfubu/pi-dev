@@ -31,15 +31,6 @@ export function detectTerminal(): TerminalPlatform {
   return platform;
 }
 
-export function terminalCallerId(): string | undefined {
-  switch (findTerminal()) {
-    case "rex": return process.env.REX_BLOCK || undefined;
-    case "herdr": return process.env.HERDR_PANE_ID || undefined;
-    case "herdr-app": return process.env.HC_TERMINAL_ID || undefined;
-    default: return undefined;
-  }
-}
-
 export async function openTerminalWindow(
   command: string,
   cwd: string,

@@ -16,7 +16,7 @@ Plan a sequence of independently mergeable deliveries before implementing a mult
 
 Split by subsystem, behavior, or mechanical versus behavioral change. Large generated/mechanical changes belong in dedicated PRs. Breaking changes get their own PR with migration notes rather than unrelated refactors.
 
-Within one repository, deliver sequentially. Dependent follow-on work waits for merge; this workflow does not create stacked open PR chains. Independent repositories deliver concurrently.
+Independent deliveries may proceed concurrently in separate worktrees, including within one repository. Respect each delivery's merge dependencies.
 
 ## Human-first slice review
 
@@ -49,10 +49,9 @@ After human-first and risk-selected automated reviews, and before creating each 
 PR delivery requires explicit authorization and the approved diff. Local delivery stops at a report of commits/checks and retained work.
 
 1. Inspect clean status, PR file count, single concern, check evidence, completed final Copilot gate, and unchanged approved SHA. Run missing mandatory/risk-selected checks; reuse unchanged evidence and successful required hooks.
-2. Check open PRs by `@me` using `gh_pr action: list`, explicit `repo: REPO`, and enough pagination to account for this orchestrator's PRs. Lane ownership uses a non-empty `PI_ORCHESTRATOR_ID` override, otherwise the detected terminal's caller identity (`HC_TERMINAL_ID` for Herdr core/app, `REX_BLOCK` for Rex, `HERDR_PANE_ID` for Herdr), and the hidden `<!-- pi-orchestrator: <id> -->` body marker. At most one open authored PR per repository **for this orchestrator**, including drafts. Check during planning and immediately before creation. If an owned PR exists, report its URL and stop new-PR creation; intentional adoption follows the follow-up reference. Host detection prefers `TERM_PROGRAM`, then Rex context, then Herdr context; never borrow an outer host's identity if the detected host's identity is missing. Rex's `REX_BLOCK` identifies the caller's terminal block; do not use `REX_SESSION`, which is shared across blocks. Use the detected identity without requesting a manual ID. If identity/ownership is unclear, stop and clarify.
-3. Push with `git -C <REPO_DIR> push -u origin <HEAD_BRANCH>`.
-4. Create the PR exactly once through `gh_pr`, passing explicit `repo: REPO`, `head: HEAD_BRANCH`, `base: BASE_REF`, and title/body plus applicable metadata. Surface the first error; do not retry from another directory or bypass the preflight with raw `gh pr create`.
-5. Read `docs/orchestrator/pr-follow-up.md` in this package and subscribe using `github_watch action: watch` with explicit repo, actual PR number, and `worktree: REPO_DIR`. Report the URL and actual monitoring status. Unavailable/failed monitoring must be reported as inactive.
+2. Push with `git -C <REPO_DIR> push -u origin <HEAD_BRANCH>`.
+3. Create the PR exactly once through `gh_pr`, passing explicit `repo: REPO`, `head: HEAD_BRANCH`, `base: BASE_REF`, and title/body plus applicable metadata. Surface the first error; do not retry from another directory.
+4. Read `docs/orchestrator/pr-follow-up.md` in this package and subscribe using `github_watch action: watch` with explicit repo, actual PR number, and `worktree: REPO_DIR`. Report the URL and actual monitoring status. Unavailable/failed monitoring must be reported as inactive.
 
 The parent alone pushes and mutates PRs. Delegate restrictions and inactive tools are not a substitute for that ownership rule. No automatic merge follows from green checks.
 

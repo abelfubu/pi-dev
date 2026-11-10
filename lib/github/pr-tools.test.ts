@@ -1,154 +1,17 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
-  assertNoOpenPullRequestByCurrentUser,
   fetchPrComments,
-  currentOrchestratorId,
-  orchestratorMarker,
   prToolConfig,
 } from "./pr-tools.js";
 
 const ctx = { cwd: "/tmp/repo" };
 
 beforeEach(() => {
-  for (const key of ["PI_ORCHESTRATOR_ID", "TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "HC_TERMINAL_ID"]) {
-    vi.stubEnv(key, "");
-  }
+  vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "");
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
-});
-
-describe("currentOrchestratorId", () => {
-  it("prefers the explicit override over terminal identities", () => {
-    vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
-    vi.stubEnv("REX_BLOCK", "block:1");
-    vi.stubEnv("HERDR_PANE_ID", "pane-1");
-    expect(currentOrchestratorId()).toBe("orch-a");
-  });
-
-  it("uses the detected terminal's caller identity", () => {
-    vi.stubEnv("TERM_PROGRAM", "Herdr");
-    vi.stubEnv("REX_BLOCK", "outer-block");
-    vi.stubEnv("HERDR_PANE_ID", "pane-1");
-    expect(currentOrchestratorId()).toBe("pane-1");
-  });
-});
-
-describe("assertNoOpenPullRequestByCurrentUser", () => {
-  it("blocks ACP delegates before querying GitHub", async () => {
-    vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "1");
-    const runJson = vi.fn();
-    await expect(assertNoOpenPullRequestByCurrentUser({}, ctx, runJson)).rejects.toThrow(
-      "Subagents cannot create pull requests. The parent orchestrator owns shipping.",
-    );
-    expect(runJson).not.toHaveBeenCalled();
-  });
-
-  it("allows creation when the current user has no open PR", async () => {
-    const calls: Array<{ args: string[]; cwd?: string }> = [];
-    await assertNoOpenPullRequestByCurrentUser(
-      { repo: "owner/repo" },
-      ctx,
-      async (args, cwd) => {
-        calls.push({ args, cwd });
-        return [];
-      },
-    );
-
-    expect(calls).toEqual([
-      {
-        args: [
-          "pr",
-          "list",
-          "--state",
-          "open",
-          "--author",
-          "@me",
-          "--limit",
-          "50",
-          "--json",
-          "number,title,url,body",
-          "--repo",
-          "owner/repo",
-        ],
-        cwd: "/tmp/repo",
-      },
-    ]);
-  });
-
-  it("blocks creation when the current user already has an open PR", async () => {
-    vi.stubEnv("PI_ORCHESTRATOR_ID", "");
-    vi.stubEnv("HERDR_PANE_ID", "");
-    await expect(
-      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
-        {
-          number: 42,
-          title: "Existing work",
-          url: "https://github.com/owner/repo/pull/42",
-        },
-      ]),
-    ).rejects.toThrow(
-      "PR creation blocked: you already have open PR #42 (Existing work)",
-    );
-  });
-
-  it("fails closed when GitHub returns an unexpected result", async () => {
-    vi.stubEnv("PI_ORCHESTRATOR_ID", "");
-    vi.stubEnv("HERDR_PANE_ID", "");
-    await expect(
-      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => ({})),
-    ).rejects.toThrow("Unable to verify");
-  });
-
-  it("blocks creation when the same orchestrator already has an open PR", async () => {
-    vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
-    await expect(
-      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
-        {
-          number: 41,
-          title: "Other orchestrator work",
-          url: "https://github.com/owner/repo/pull/41",
-          body: `Notes\n\n${orchestratorMarker("orch-b")}`,
-        },
-        {
-          number: 42,
-          title: "Existing work",
-          url: "https://github.com/owner/repo/pull/42",
-          body: `Notes\n\n${orchestratorMarker("orch-a")}`,
-        },
-      ]),
-    ).rejects.toThrow(
-      "PR creation blocked: this orchestrator already has open PR #42 (Existing work)",
-    );
-  });
-
-  it("allows creation when open PRs belong to other orchestrators", async () => {
-    vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
-    await assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
-      {
-        number: 41,
-        title: "Other orchestrator work",
-        url: "https://github.com/owner/repo/pull/41",
-        body: orchestratorMarker("orch-b"),
-      },
-      { number: 43, title: "Manual PR", url: "https://github.com/owner/repo/pull/43", body: "" },
-    ]);
-  });
-
-  it.each(["REX_BLOCK", "HERDR_PANE_ID", "HC_TERMINAL_ID"])("falls back to %s for PR ownership", async (key) => {
-    vi.stubEnv(key, "pane-1");
-    await expect(
-      assertNoOpenPullRequestByCurrentUser({}, ctx, async () => [
-        {
-          number: 42,
-          title: "Existing work",
-          url: "https://github.com/owner/repo/pull/42",
-          body: orchestratorMarker("pane-1"),
-        },
-      ]),
-    ).rejects.toThrow("this orchestrator already has open PR #42");
-  });
 });
 
 describe("fetchPrComments", () => {
@@ -232,16 +95,12 @@ describe("prToolConfig", () => {
       );
     });
 
-    it("builds minimal args with --fill when no orchestrator identity exists", () => {
-      vi.stubEnv("PI_ORCHESTRATOR_ID", "");
-      vi.stubEnv("HERDR_PANE_ID", "");
+    it("builds minimal args with --fill", () => {
       const args = handler.buildArgs({ action: "create", title: "Fix bug" } as any, ctx);
       expect(args).toEqual(["pr", "create", "--title", "Fix bug", "--fill"]);
     });
 
     it("builds args with body", () => {
-      vi.stubEnv("PI_ORCHESTRATOR_ID", "");
-      vi.stubEnv("HERDR_PANE_ID", "");
       const args = handler.buildArgs(
         { action: "create", title: "Fix bug", body: "Details" } as any,
         ctx,
@@ -249,38 +108,18 @@ describe("prToolConfig", () => {
       expect(args).toEqual(["pr", "create", "--title", "Fix bug", "--body", "Details"]);
     });
 
-    it.each(["PI_ORCHESTRATOR_ID", "REX_BLOCK", "HERDR_PANE_ID", "HC_TERMINAL_ID"])("appends the marker from %s to the body", (key) => {
-      vi.stubEnv(key, "orch-a");
-      const args = handler.buildArgs(
-        { action: "create", title: "Fix bug", body: "Details" } as any,
-        ctx,
-      );
-      expect(args).toEqual([
-        "pr",
-        "create",
-        "--title",
-        "Fix bug",
-        "--body",
-        `Details\n\n${orchestratorMarker("orch-a")}`,
-      ]);
+    it("allows parent creation without querying existing PRs", async () => {
+      await expect(handler.beforeRun!({ action: "create" }, ctx)).resolves.toBeUndefined();
     });
 
-    it("uses the marker alone as body instead of --fill", () => {
-      vi.stubEnv("PI_ORCHESTRATOR_ID", "orch-a");
-      const args = handler.buildArgs({ action: "create", title: "Fix bug" } as any, ctx);
-      expect(args).toEqual([
-        "pr",
-        "create",
-        "--title",
-        "Fix bug",
-        "--body",
-        orchestratorMarker("orch-a"),
-      ]);
+    it("blocks ACP delegates from creating PRs", async () => {
+      vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "1");
+      await expect(handler.beforeRun!({ action: "create" }, ctx)).rejects.toThrow(
+        "Subagents cannot create pull requests. The parent orchestrator owns shipping.",
+      );
     });
 
     it("splits multiple labels and reviewers", () => {
-      vi.stubEnv("PI_ORCHESTRATOR_ID", "");
-      vi.stubEnv("HERDR_PANE_ID", "");
       const args = handler.buildArgs(
         {
           action: "create",

@@ -20,10 +20,10 @@ describe("GitHub shipping guards", () => {
     ]);
   });
 
-  it("blocks direct PR creation for the parent and delegates", () => {
+  it("allows direct PR creation for the parent but blocks delegates", () => {
     const { call } = setup();
     const event = { toolName: "bash", input: { command: "gh pr create --title Test" } };
-    expect(call(event)?.block).toBe(true);
+    expect(call(event)).toBeUndefined();
     vi.stubEnv("PI_ACP_DELEGATE_DEPTH", "1");
     expect(call(event)?.block).toBe(true);
   });

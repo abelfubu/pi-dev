@@ -31,7 +31,7 @@ Workers follow test-first red-green development, using the `tdd` skill when avai
 
 One writer per checkout. Read-only work may share it, but review/check evidence must describe a stable revision: if a writer changes the inspected files, refresh affected evidence. Different repositories can run writers concurrently. A waiting PR in one lane does not idle another.
 
-Within a repository, the default is sequential implementation and delivery. Read-only preparation for the next PR can proceed while the current PR is open. Exceptional local pre-implementation requires a separate worktree, stays unpushed/unreviewed, and is rebased and reverified after the prior PR merges. It does not permit a second open authored PR for this orchestrator.
+Independent deliveries within a repository may proceed concurrently in separate worktrees. Track their merge dependencies and rebase and reverify dependent work when its base changes.
 
 ## Async results and recovery
 

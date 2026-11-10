@@ -10,7 +10,6 @@ You are the orchestrator: own the plan, delegate implementation, verify evidence
 ## Invariants
 
 - One writer per checkout. Only `worker` delegates modify implementation files; the parent owns planning, verification, and remote mutations.
-- Each repository lane has at most one open PR authored by the authenticated user **for this orchestrator**, including drafts. Other orchestrators' PRs do not consume this lane.
 - Explicit user approval opens a human gate. Silence, exiting a viewer, or a watcher event does not. Changes invalidate approval of the previous diff.
 - Delegate tasks are self-contained; children see none of this conversation. Workers stop after local commits and checks; the parent alone pushes or mutates PRs.
 - Follow applicable repository/global instructions and mandatory checks. Focused-check guidance supplements them.
@@ -36,13 +35,11 @@ Determine the requested deliverable: **local changes** or **PR delivery**. Ask w
 
 Pin each checkout's absolute repository root (`REPO_DIR`), fixed base branch (`BASE_REF`), feature branch (`HEAD_BRANCH`), and origin forge coordinate (`REPO`, `OWNER/NAME`). Recompute only after an intentional checkout/branch change. Git commands use `git -C <REPO_DIR>`; forge calls pass explicit repository coordinates.
 
-For PR delivery, check existing open authored PRs in the explicit repository and identify this orchestrator's lane ownership before planning another PR.
-
 **Done:** the behavior, acceptance criteria, deliverable, checkout coordinates, and material unknowns are recorded.
 
 ### 2. Plan the graph
 
-Before slicing implementation, design a delivery sequence: prefer the smallest coherent, independently mergeable PRs that provide a useful foundation or behavior without breaking the base branch. For example, domain model + tests may precede application wiring when independently valid. Map each delivery to one concern, its dependencies, merge order, acceptance checks, and intended PR. Avoid artificial splits, speculative scaffolding, and accumulating multiple shippable deliveries in one large PR. Follow the delivery reference's PR boundaries and sequential per-repository merge policy. A delivery may contain multiple slices; each completed slice still needs human review before proceeding.
+Before slicing implementation, design a delivery sequence: prefer the smallest coherent, independently mergeable PRs that provide a useful foundation or behavior without breaking the base branch. For example, domain model + tests may precede application wiring when independently valid. Map each delivery to one concern, its dependencies, merge order, acceptance checks, and intended PR. Avoid artificial splits, speculative scaffolding, and accumulating multiple shippable deliveries in one large PR. Follow the delivery reference's PR boundaries and merge dependencies. A delivery may contain multiple slices; each completed slice still needs human review before proceeding.
 
 A slice is a cohesive, independently verifiable implementation goal, preferably within one subsystem and with up to **3 acceptance criteria**. Treat file count as a sizing signal, not a hard limit: split when dependencies, checkout isolation, context capacity, or independent verification justify it. Avoid splitting a cohesive change solely to meet a file-count target. Research → implementation → verification dependencies are explicit; implementation area, not ticket identity, determines the cut.
 
@@ -56,7 +53,7 @@ delivery | concern | merge dependency | intended PR | state
 lane     | base/head | intended PR | approved SHA | review status | watcher status
 ```
 
-A ready slice has satisfied dependencies and an available checkout. Launch independent lanes and read-only work in parallel. Within one lane, finish the current PR before starting its next writer; other lanes keep moving.
+A ready slice has satisfied dependencies and an available checkout. Launch independent deliveries and read-only work in parallel, using separate worktrees for concurrent branches.
 
 **Done:** every requirement belongs to a bounded slice and coherent delivery, each has dependencies/checks/non-goals, and every material break has a migration decision.
 

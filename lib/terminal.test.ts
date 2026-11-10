@@ -19,7 +19,7 @@ vi.mock("./herdr.js", () => ({
   openHerdrReviewTab: mocks.openHerdrReviewTab,
   runInPane: mocks.runInPane,
 }));
-import { detectTerminal, describeTerminalWindow, openReviewWindow, openTerminalWindow, terminalCallerId } from "./terminal.js";
+import { detectTerminal, describeTerminalWindow, openReviewWindow, openTerminalWindow } from "./terminal.js";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -32,46 +32,6 @@ function rexResult(stdout: string, error: Error | null = null) {
     callback(error, stdout, "");
   });
 }
-
-describe("terminalCallerId", () => {
-  it.each([
-    ["REX_BLOCK", "block:1", "rex"],
-    ["HERDR_PANE_ID", "pane-1", "herdr"],
-    ["HC_TERMINAL_ID", "terminal-1", "herdr-app"],
-  ])("uses %s for the caller identity", (key, id, platform) => {
-    vi.stubEnv(key, id);
-    expect(detectTerminal()).toBe(platform);
-    expect(terminalCallerId()).toBe(id);
-  });
-
-  it.each([
-    ["rex", "block:1"],
-    ["Herdr", "pane-1"],
-    ["herdr-app", "terminal-1"],
-  ])("uses the immediate %s host instead of inherited context", (host, id) => {
-    vi.stubEnv("TERM_PROGRAM", host);
-    vi.stubEnv("REX_SESSION", "session:1");
-    vi.stubEnv("REX_BLOCK", "block:1");
-    vi.stubEnv("HERDR_PANE_ID", "pane-1");
-    vi.stubEnv("HC_TERMINAL_ID", "terminal-1");
-    expect(terminalCallerId()).toBe(id);
-  });
-
-  it.each(["rex", "Herdr", "herdr-app"])("does not borrow an outer identity when %s context is incomplete", (host) => {
-    vi.stubEnv("TERM_PROGRAM", host);
-    vi.stubEnv(host === "rex" ? "HERDR_PANE_ID" : "REX_BLOCK", "outer");
-    expect(terminalCallerId()).toBeUndefined();
-  });
-
-  it("returns no identity outside a supported terminal", () => {
-    expect(terminalCallerId()).toBeUndefined();
-  });
-
-  it("does not use the shared Rex session as caller identity", () => {
-    vi.stubEnv("REX_SESSION", "session:1");
-    expect(terminalCallerId()).toBeUndefined();
-  });
-});
 
 describe("terminal viewers", () => {
   it("requires known caller context", () => {

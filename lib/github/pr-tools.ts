@@ -3,7 +3,6 @@ import { Type } from "typebox";
 import { registerGhActionTool, type ActionContext, type GhActionToolConfig } from "./tool.js";
 import { formatPr, formatPrList, formatChecks, formatPrComments } from "./format.js";
 import { runGhJson } from "./runner.js";
-import { terminalCallerId } from "../terminal.js";
 
 const DEFAULT_VIEW_FIELDS =
   "number,title,url,state,headRefName,baseRefName,isDraft,mergeable,mergeStateStatus,body";
@@ -45,23 +44,6 @@ interface PrParams extends Record<string, unknown> {
   state?: string;
   author?: string;
   limit?: number;
-}
-
-interface AuthoredPullRequest {
-  number: number;
-  title: string;
-  url: string;
-  body?: string;
-}
-
-const ORCHESTRATOR_MARKER_PREFIX = "<!-- pi-orchestrator:";
-
-export function currentOrchestratorId(): string | undefined {
-  return process.env.PI_ORCHESTRATOR_ID || terminalCallerId();
-}
-
-export function orchestratorMarker(orchestratorId: string): string {
-  return `${ORCHESTRATOR_MARKER_PREFIX} ${orchestratorId} -->`;
 }
 
 type JsonRunner = (args: string[], cwd?: string) => Promise<unknown>;
@@ -111,50 +93,6 @@ export async function fetchPrComments(
     reviews: byAuthor(flattenPages(reviewsResult)),
     reviewComments: byAuthor(flattenPages(reviewCommentsResult)),
   };
-}
-
-export async function assertNoOpenPullRequestByCurrentUser(
-  params: Pick<PrParams, "repo">,
-  ctx: ActionContext,
-  runJson: JsonRunner = runGhJson,
-): Promise<void> {
-  if (process.env.PI_ACP_DELEGATE_DEPTH) {
-    throw new Error("Subagents cannot create pull requests. The parent orchestrator owns shipping.");
-  }
-
-  const orchestratorId = currentOrchestratorId();
-  const args = [
-    "pr",
-    "list",
-    "--state",
-    "open",
-    "--author",
-    "@me",
-    "--limit",
-    "50",
-    "--json",
-    "number,title,url,body",
-  ];
-  if (params.repo) args.push("--repo", params.repo);
-
-  const result = await runJson(args, ctx.cwd);
-  if (!Array.isArray(result)) {
-    throw new Error("Unable to verify the current user's open pull requests.");
-  }
-
-  const pullRequests = result as AuthoredPullRequest[];
-  const existing = orchestratorId
-    ? pullRequests.find(
-        (pr) => typeof pr.body === "string" && pr.body.includes(orchestratorMarker(orchestratorId)),
-      )
-    : pullRequests[0];
-  if (existing) {
-    throw new Error(
-      orchestratorId
-        ? `PR creation blocked: this orchestrator already has open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`
-        : `PR creation blocked: you already have open PR #${existing.number} (${existing.title}) in this repository: ${existing.url}`,
-    );
-  }
 }
 
 export const prToolConfig: GhActionToolConfig<PrParams> = {
@@ -231,12 +169,8 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
           throw new Error("title is required for create");
         }
         const args = ["pr", "create", "--title", params.title];
-        const orchestratorId = currentOrchestratorId();
-        const body = orchestratorId
-          ? [params.body, orchestratorMarker(orchestratorId)].filter(Boolean).join("\n\n")
-          : params.body;
-        if (body) {
-          args.push("--body", body);
+        if (params.body) {
+          args.push("--body", params.body);
         } else {
           args.push("--fill");
         }
@@ -263,7 +197,11 @@ export const prToolConfig: GhActionToolConfig<PrParams> = {
         if (params.milestone) args.push("--milestone", params.milestone);
         return args;
       },
-      beforeRun: assertNoOpenPullRequestByCurrentUser,
+      beforeRun: async () => {
+        if (process.env.PI_ACP_DELEGATE_DEPTH) {
+          throw new Error("Subagents cannot create pull requests. The parent orchestrator owns shipping.");
+        }
+      },
       format: (result) => {
         const { stdout } = result as { stdout: string };
         const url = stdout.match(/https:\/\/github\.com\/[^\s]+/)?.[0] ?? stdout;

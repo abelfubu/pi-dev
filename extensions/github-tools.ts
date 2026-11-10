@@ -10,11 +10,11 @@ export default function (pi: ExtensionAPI) {
     if (event.toolName !== "bash") return undefined;
 
     const command = String(event.input.command ?? "");
-    if (/\bgh\b[^\n;&|]*\bpr\s+create\b/i.test(command)) {
+    if (process.env.PI_ACP_DELEGATE_DEPTH && /\bgh\b[^\n;&|]*\bpr\s+create\b/i.test(command)) {
       return {
         block: true,
         reason:
-          "Direct `gh pr create` is blocked. Use the gh_pr tool so the one-open-PR-per-orchestrator policy is enforced.",
+          "Subagents cannot create pull requests. The parent orchestrator owns shipping.",
       };
     }
 
