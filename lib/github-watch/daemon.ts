@@ -55,9 +55,9 @@ export async function runDaemon(fetch: (target: Target) => Promise<Snapshot> = f
       }
       for (const subscription of store.active().filter(s => s.consumer === client.consumer)) {
         const id = key(subscription), record = store.data.records[id];
-        if (!record || record.revision <= subscription.acknowledged || record.revision <= (client.sent.get(id) ?? 0)) continue;
+        if (!record?.summary || record.revision <= subscription.acknowledged || record.revision <= (client.sent.get(id) ?? 0)) continue;
         client.sent.set(id, record.revision);
-        emit(socket, { type: "changed", repo: subscription.repo, pr: subscription.pr, revision: record.revision, worktree: subscription.worktree });
+        emit(socket, { type: "changed", repo: subscription.repo, pr: subscription.pr, revision: record.revision, summary: record.summary, worktree: subscription.worktree });
       }
     }
   };
@@ -145,8 +145,14 @@ export async function runDaemon(fetch: (target: Target) => Promise<Snapshot> = f
       const subscription = consumer ? store.data.subscriptions[subscriptionKey(consumer, target)] : undefined;
       return record ? { ...record, stale: Boolean(record.error || persistenceError) || !record.fetchedAt || Date.now() - Date.parse(record.fetchedAt) > 90000, persistenceError, subscriptionActive: Boolean(subscription && subscription.expiresAt > Date.now()), subscription } : null;
     };
-    if (message.op === "status") return status();
-    if (message.op === "refresh") { await reconcile(target); return status(); }
+    const statusResponse = () => {
+      const result = status();
+      if (!message.brief || !result) return result;
+      const { snapshot, ...brief } = result;
+      return { ...brief, headSha: snapshot?.headSha, state: snapshot?.state };
+    };
+    if (message.op === "status") return statusResponse();
+    if (message.op === "refresh") { await reconcile(target); return statusResponse(); }
     if (!consumer) throw new Error("Consumer is required");
     if (message.op === "watch") {
       const old = store.data.subscriptions[subscriptionKey(consumer, target)];

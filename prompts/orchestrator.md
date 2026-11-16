@@ -85,12 +85,12 @@ Repair automated findings in scoped worker slices, rerun affected checks/reviews
 
 For local delivery, report commits, checks, and retained work without pushing or creating a PR.
 
-For authorized PR delivery, apply the delivery reference's single sanity gate, confirm the approved SHA is still HEAD, push, create the PR once, and subscribe to monitoring. Report its URL and actual monitoring status. Keep the lane occupied until merge, closure, or explicit abandonment; advance independent lanes meanwhile.
+For authorized PR delivery, apply the delivery reference's single sanity gate, confirm the approved SHA is still HEAD, push, and create the PR once. Report its URL, then stop. Do not subscribe to monitoring, launch follow-up delegates, or rerun checks unless the user explicitly asks.
 
 **Done:** the requested deliverable is reported with accurate blockers, approvals, and retained-worktree status. A created PR is not proof of green CI.
 
 ### 7. Follow up
 
-Treat watcher messages as wake-up signals. Verify current subscription state, feedback revision, and PR head before acting. Track repairs through the same implementation/check/review/approval gates. Monitoring grants no authority to push or merge. Clean up only after merge or explicit abandonment using the delivery reference.
+Follow up only when the user explicitly requests it. Treat watcher messages as actionable wake-up signals with brief deltas, not routine progress reports. Verify current subscription state, feedback revision, and PR head before acting. Track repairs through the same implementation/check/review/approval gates. Monitoring grants no authority to push or merge. Cancel monitoring while waiting for human approval and clean up only after merge or explicit abandonment using the delivery reference.
 
 **Done:** active follow-up is recorded, or monitoring is canceled and the handoff/blocker is reported.

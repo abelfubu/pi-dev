@@ -29,18 +29,17 @@ it("does not connect or manage subscriptions inside ACP delegates", async () => 
   expect(client.request).not.toHaveBeenCalled();
   handlers.get("session_shutdown")!();
 });
-it("queues quiet maintenance instructions rather than user-facing change reports", () => {
+it("queues a brief actionable delta rather than a user-facing change report", () => {
   const { receive, sendMessage, handlers } = setup();
-  receive({ type: "changed", repo: "org/server", pr: 742, revision: 1 });
+  receive({ type: "changed", repo: "org/server", pr: 742, revision: 1, summary: "CI failed: build." });
   const [message, options] = sendMessage.mock.calls[0];
   expect(message.display).toBe(false);
+  expect(message.content).toContain("CI failed: build.");
   expect(message.content).toContain("docs/orchestrator/pr-follow-up.md");
-  expect(message.content).toContain("Proactively address valid review feedback");
-  expect(message.content).toContain("merge conflicts within authorized scope");
-  expect(message.content).toContain("notify the user only for a decision/blocker");
-  expect(message.content).toContain("Do not repeat unchanged notices");
-  expect(message.content).toContain("Never merge automatically");
+  expect(message.content).toContain("brief: true");
+  expect(message.content).toContain("Fetch only details relevant to this delta");
   expect(message.content).toContain("acknowledge only the inspected revision");
+  expect(message.content).toContain("never merge automatically");
   expect(options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
   handlers.get("session_shutdown")!();
 });
@@ -74,6 +73,12 @@ it("reports lease expiry without starting an agent turn", () => {
   const { expire, sendMessage, handlers } = setup();
   expire({ repo: "org/server", pr: 742 });
   expect(sendMessage.mock.calls[0][1]).toEqual({ triggerTurn: false });
+  handlers.get("session_shutdown")!();
+});
+it("requests compact status when brief mode is selected", async () => {
+  const { tool, handlers } = setup();
+  await tool.execute("status", { action: "status", repo: "org/server", pr: 742, brief: true });
+  expect(vi.mocked(client.request).mock.calls.at(-1)?.[0]).toMatchObject({ op: "status", brief: true });
   handlers.get("session_shutdown")!();
 });
 it("rejects already aborted operations before starting the service", async () => {

@@ -6,8 +6,8 @@ import type { Target } from "./state.js";
 export const protocolVersion = 1;
 export function watchDirectory(): string { return process.env.PI_GITHUB_WATCH_DIR ?? join(homedir(), ".pi", "github-watch"); }
 export function socketPath(): string { return join(watchDirectory(), "watch.sock"); }
-export interface Request { op: string; consumer?: string; target?: Target; revision?: number; leaseSeconds?: number; worktree?: string }
-export interface Change extends Target { type: "changed"; revision: number; worktree?: string }
+export interface Request { op: string; consumer?: string; target?: Target; revision?: number; leaseSeconds?: number; worktree?: string; brief?: boolean }
+export interface Change extends Target { type: "changed"; revision: number; summary?: string; worktree?: string }
 export function request(message: Request): Promise<any> {
   return new Promise((resolve, reject) => {
     const socket = connect(socketPath());

@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { actionableSummary } from "./events.js";
 
 export interface Target { repo: string; pr: number }
 export interface Snapshot {
@@ -8,7 +9,7 @@ export interface Snapshot {
   mergeable?: string | null; mergeStateStatus?: string | null;
 }
 export interface RecordState extends Target {
-  revision: number; fetchedAt?: string; error?: string; snapshot?: Snapshot;
+  revision: number; fetchedAt?: string; error?: string; snapshot?: Snapshot; summary?: string;
 }
 export interface Subscription extends Target { consumer: string; expiresAt: number; acknowledged: number; worktree?: string }
 interface Data { version: 1; account?: string; records: Record<string, RecordState>; subscriptions: Record<string, Subscription> }
@@ -59,8 +60,14 @@ export class Store {
   }
   update(target: Target, snapshot: Snapshot): RecordState {
     const old = this.data.records[key(target)];
-    const changed = JSON.stringify(old?.snapshot) !== JSON.stringify(snapshot) || Boolean(old?.error);
-    return this.data.records[key(target)] = { ...target, snapshot, revision: (old?.revision ?? 0) + (changed ? 1 : 0), fetchedAt: new Date().toISOString() };
+    const summary = actionableSummary(old?.snapshot, snapshot);
+    return this.data.records[key(target)] = {
+      ...target,
+      snapshot,
+      summary: summary ?? old?.summary,
+      revision: (old?.revision ?? 0) + (summary ? 1 : 0),
+      fetchedAt: new Date().toISOString(),
+    };
   }
   fail(target: Target, error: string): void {
     const old = this.data.records[key(target)];

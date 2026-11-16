@@ -19,7 +19,7 @@ it("paginates threads and replies and preserves empty review state", async () =>
   expect((snapshot.threads[0] as any).comments).toHaveLength(2);
   expect(read.mock.calls.some(([args]) => args.includes("cursor=next"))).toBe(true);
 });
-it("tracks mergeability, approval, and draft changes even without new feedback or CI", async () => {
+it("tracks metadata without waking for routine approval or draft changes", async () => {
   let metadata = { ...pr };
   const read = vi.fn(async (args: string[]) => {
     if (args[0] === "pr") return metadata;
@@ -30,11 +30,11 @@ it("tracks mergeability, approval, and draft changes even without new feedback o
   const initial = await fetchSnapshot(target, read);
   expect(initial).toMatchObject({ baseSha: "base", isDraft: false, reviewDecision: "APPROVED", mergeable: "MERGEABLE", mergeStateStatus: "CLEAN" });
   expect(read.mock.calls[0][0].at(-1)).toContain("mergeable,mergeStateStatus");
-  expect(store.update(target, initial).revision).toBe(1);
+  expect(store.update(target, initial).revision).toBe(0);
   for (const change of [{ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }, { reviewDecision: "CHANGES_REQUESTED" }, { isDraft: true }]) {
     metadata = { ...metadata, ...change };
     const next = await fetchSnapshot(target, read);
-    expect(store.update(target, next).revision).toBeGreaterThan(1);
+    expect(store.update(target, next).revision).toBe(1);
     expect(next).toMatchObject(change);
   }
 });
